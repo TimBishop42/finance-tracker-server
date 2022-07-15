@@ -30,9 +30,11 @@ public class Transaction {
     private BigDecimal amount;
 
     @Column
-    private Date transactionDate;
+    private Long transactionDate;
 
     private String comment;
+
+    private boolean essential;
 
     private String companyName;
 
@@ -40,8 +42,9 @@ public class Transaction {
         return Transaction.builder()
                 .category(transactionJson.getCategory())
                 .amount(BigDecimal.valueOf(Double.parseDouble(transactionJson.getAmount())))
-                .transactionDate(DateUtil.getDateFromString(transactionJson.getTransactionDate()))
+                .transactionDate(Long.getLong(transactionJson.getTransactionDate()))
                 .comment(transactionJson.getComment())
+                .essential(transactionJson.isEssential())
                 .companyName(transactionJson.getCompanyName())
                 .build();
     }

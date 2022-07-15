@@ -23,9 +23,10 @@ public class TrackerController {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
-    @PostMapping
+    @PostMapping("/submit-transaction")
+    @CrossOrigin(origins = "http://localhost:3000")
     public Mono<ResponseEntity<String>> submitTransaction(@RequestBody final TransactionJson transactionJson) {
-        log.info("Received request to save new transaction");
+        log.info("Received request to save new transaction: {}", transactionJson);
         return Mono.just(transactionService.addNewTransaction(transactionJson));
     }
 
@@ -43,9 +44,9 @@ public class TrackerController {
     }
 
     @PostMapping("/add-category")
-    public String addCategory(@RequestBody String category) {
+    public Mono<String> addCategory(@RequestBody String category) {
         log.info("Received request to add category");
-        return categoryService.addCategory(category);
+        return Mono.just(categoryService.addCategory(category));
     }
 
 }

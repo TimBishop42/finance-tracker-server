@@ -20,7 +20,9 @@ public class TransactionJson {
 
     private String comment;
 
-    @NotNull
     private String companyName;
+
+    @NotNull
+    private boolean essential;
 
 }

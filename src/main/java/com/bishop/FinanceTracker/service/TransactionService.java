@@ -37,6 +37,7 @@ public class TransactionService {
             log.error("Failed saving new transaction");
             return new ResponseEntity(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
+        log.info("Saved new transaction: {}", newTransaction);
         return ResponseEntity.ok().build();
     }
 
