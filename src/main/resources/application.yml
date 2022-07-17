@@ -6,6 +6,8 @@ spring:
       path: /h2
   datasource:
     url: jdbc:mysql://localhost:3306/finance
-    #spring.datasource.driverClassName: org.h2.Driver
+    driverClassName: com.mysql.jdbc.Driver
     username: root
     password: ##OVERRIDE
+  jpa:
+    database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
