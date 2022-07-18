@@ -1,4 +1,4 @@
-create table TRANSACTION (
+create table transaction (
   TRANSACTION_ID BIGINT UNSIGNED not null,
   CATEGORY varchar(100) not null,
   AMOUNT float(4) not null,
@@ -8,8 +8,8 @@ create table TRANSACTION (
   CREATE_DATE BIGINT UNSIGNED not null,
   PRIMARY KEY(TRANSACTION_ID)
   );
-  
- CREATE TABLE CATEGORY (
+
+ CREATE TABLE category (
   CATEGORY_NAME VARCHAR(100) NOT NULL,
   CREATE_DATE BIGINT UNSIGNED not null,
   PRIMARY KEY (CATEGORY_NAME)

@@ -12,6 +12,7 @@ import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
 import javax.validation.ConstraintViolation;
+import java.util.List;
 import java.util.Set;
 
 
@@ -24,6 +25,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
 
     public ResponseEntity addNewTransaction(TransactionJson transactionJson) {
+        long startTime = System.currentTimeMillis();
         Set<ConstraintViolation<TransactionJson>> validationResult = jsonValidator.validateJson(transactionJson);
         if(validationResult.size() > 0) {
             log.error("Failed to save new transaction, constraint violation on input: {}", validationResult);
@@ -37,11 +39,14 @@ public class TransactionService {
             log.error("Failed saving new transaction");
             return new ResponseEntity(e.getMessage(), HttpStatus.INTERNAL_SERVER_ERROR);
         }
-        log.info("Saved new transaction: {}", newTransaction);
+        log.info("Saved new transaction: {} in {} milliseconds", newTransaction, System.currentTimeMillis() - startTime);
         return ResponseEntity.ok().build();
     }
 
     public Flux<Transaction> getAll() {
-        return Flux.fromIterable(transactionRepository.findAll());
+        long startTime = System.currentTimeMillis();
+        List<Transaction> transactions = transactionRepository.findAll();
+        log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
+        return Flux.fromIterable(transactions);
     }
 }
