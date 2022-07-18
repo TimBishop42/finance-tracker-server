@@ -35,7 +35,8 @@ public class Transaction {
 
     private boolean essential;
 
-    private String companyName;
+//    @Deprecated
+//    private String companyName;
 
     private Long createTime;
 
@@ -46,7 +47,6 @@ public class Transaction {
                 .transactionDate(Long.getLong(transactionJson.getTransactionDate()))
                 .comment(transactionJson.getComment())
                 .essential(transactionJson.isEssential())
-                .companyName(transactionJson.getCompanyName())
                 .createTime(System.currentTimeMillis())
                 .build();
     }

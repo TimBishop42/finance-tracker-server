@@ -20,6 +20,7 @@ public class TransactionJson {
 
     private String comment;
 
+    @Deprecated
     private String companyName;
 
     @NotNull
