@@ -1,16 +1,16 @@
 create table transaction (
-  TRANSACTION_ID BIGINT UNSIGNED not null,
-  CATEGORY varchar(100) not null,
-  AMOUNT float(4) not null,
-  TRANSACTION_DATE BIGINT UNSIGNED not null,
-  COMMENT varchar(100),
-  ESSENTIAL bool not null,
-  CREATE_DATE BIGINT UNSIGNED not null,
-  PRIMARY KEY(TRANSACTION_ID)
+  transaction_id BIGINT UNSIGNED not null,
+  category varchar(100) not null,
+  amount float(4) not null,
+  transaction_date BIGINT UNSIGNED not null,
+  comment varchar(100),
+  essential bool not null,
+  create_time BIGINT UNSIGNED not null,
+  PRIMARY KEY(transaction_id)
   );
 
  CREATE TABLE category (
-  CATEGORY_NAME VARCHAR(100) NOT NULL,
-  CREATE_DATE BIGINT UNSIGNED not null,
-  PRIMARY KEY (CATEGORY_NAME)
+  category_name VARCHAR(100) NOT NULL,
+  create_date BIGINT UNSIGNED not null,
+  PRIMARY KEY (category_name)
   );
