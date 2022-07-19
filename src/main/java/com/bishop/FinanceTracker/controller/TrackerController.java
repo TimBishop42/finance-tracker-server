@@ -33,14 +33,14 @@ public class TrackerController {
     @GetMapping("/find-all-transactions")
     public Flux<Transaction> getAllTransactions() {
         log.info("Received request to get all transactions");
-        return transactionService.getAll();
+        return Flux.fromIterable(transactionService.getAll());
     }
 
     @GetMapping("/get-categories")
     @CrossOrigin(origins = "http://localhost:3000")
     public Mono<List<Category>> getAllCategories() {
         log.info("Received request to get all categories");
-        return categoryService.getAllCategories();
+        return Mono.just(categoryService.getAllCategories());
     }
 
     @PostMapping("/add-category")
