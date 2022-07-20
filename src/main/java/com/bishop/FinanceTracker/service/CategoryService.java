@@ -6,17 +6,12 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
-import org.springframework.web.bind.annotation.PostMapping;
-import reactor.core.publisher.Mono;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
 
@@ -34,10 +29,9 @@ public class CategoryService {
         categoryCache = Caffeine.newBuilder()
                 .maximumSize(100)
                 .build();
-        getAllCategories().stream().forEach(c -> categoryCache.put(c.getCategoryName(), c));
+        fetchAll().stream().forEach(c -> categoryCache.put(c.getCategoryName(), c));
     }
 
-    @Cacheable("categories")
     public List<Category> getAllCategories() {
         long startTime = System.currentTimeMillis();
         List<Category> categories = new ArrayList<>(categoryCache.asMap().values());
@@ -62,5 +56,12 @@ public class CategoryService {
         categoryCache.put(newCategory.getCategoryName(), newCategory);
         log.info("Successfully saved new category with name: {} in {} milliseconds", newCategory.getCategoryName(), System.currentTimeMillis() - startTime);
         return "Add SUCCESS: New category name saved";
+    }
+
+    private List<Category> fetchAll() {
+        long startTime = System.currentTimeMillis();
+        List<Category> categories = categoryRepository.findAll();
+        log.info("Successfully retrieved categories in {} milliseconds", System.currentTimeMillis() - startTime);
+        return categories;
     }
 }

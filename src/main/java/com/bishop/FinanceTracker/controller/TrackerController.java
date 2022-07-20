@@ -1,17 +1,19 @@
 package com.bishop.FinanceTracker.controller;
 
+import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.Category;
 import com.bishop.FinanceTracker.model.domain.Transaction;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
+import com.bishop.FinanceTracker.model.json.TransactionsJson;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
+import java.time.Duration;
 import java.util.List;
 
 @Data
@@ -25,9 +27,16 @@ public class TrackerController {
 
     @PostMapping("/submit-transaction")
     @CrossOrigin(origins = "http://localhost:3000")
-    public Mono<ResponseEntity<String>> submitTransaction(@RequestBody final TransactionJson transactionJson) {
+    public Mono<SaveTransactionResponse> submitTransaction(@RequestBody final TransactionJson transactionJson) {
         log.info("Received request to save new transaction: {}", transactionJson);
         return Mono.just(transactionService.addNewTransaction(transactionJson));
+    }
+
+    @PostMapping("/submit-transaction-batch")
+    @CrossOrigin(origins = "http://localhost:3000")
+    public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final TransactionsJson transactionsJson) {
+        log.info("Received request to save new transaction: {}", transactionsJson);
+        return transactionService.addNewTransactions(transactionsJson);
     }
 
     @GetMapping("/find-all-transactions")
@@ -47,6 +56,11 @@ public class TrackerController {
     public Mono<String> addCategory(@RequestBody String category) {
         log.info("Received request to add category");
         return Mono.just(categoryService.addCategory(category));
+    }
+
+    @GetMapping("/flux-test")
+    public Flux<Integer> getFlux() {
+        return Flux.just(1,2,3,4,5).delayElements(Duration.ofSeconds(1));
     }
 
 }
