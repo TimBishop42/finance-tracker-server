@@ -1,11 +1,13 @@
 package com.bishop.FinanceTracker.model.json;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import lombok.Builder;
 import lombok.Data;
 
 import javax.validation.constraints.NotNull;
 
 @Data
+@Builder
 public class TransactionJson {
 
     @NotNull
@@ -16,7 +18,7 @@ public class TransactionJson {
 
     @NotNull
     @JsonProperty(value = "transactionDate")
-    private String transactionDate;
+    private Long transactionDate;
 
     private String comment;
 

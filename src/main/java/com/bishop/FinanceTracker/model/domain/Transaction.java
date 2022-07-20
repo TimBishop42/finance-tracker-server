@@ -11,6 +11,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.Id;
 import java.math.BigDecimal;
+import java.time.ZoneId;
 
 @Data
 @Entity
@@ -25,18 +26,18 @@ public class Transaction {
     @Column(nullable = false)
     private String category;
 
-    @Column
+    @Column(nullable = false)
     private BigDecimal amount;
 
-    @Column
-    private Long transactionDate;
+    @Column(nullable = false)
+    private Long transactionDateTime;
+
+    @Column(nullable = false)
+    private String transactionDate;
 
     private String comment;
 
     private boolean essential;
-
-//    @Deprecated
-//    private String companyName;
 
     private Long createTime;
 
@@ -44,7 +45,8 @@ public class Transaction {
         return Transaction.builder()
                 .category(transactionJson.getCategory())
                 .amount(BigDecimal.valueOf(Double.parseDouble(transactionJson.getAmount())))
-                .transactionDate(Long.getLong(transactionJson.getTransactionDate()))
+                .transactionDateTime(transactionJson.getTransactionDate())
+                .transactionDate(DateUtil.getLocalizedDateString(transactionJson.getTransactionDate(), ZoneId.of("Australia/Sydney")))
                 .comment(transactionJson.getComment())
                 .essential(transactionJson.isEssential())
                 .createTime(System.currentTimeMillis())

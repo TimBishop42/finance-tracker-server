@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.controller;
 
+import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.Category;
 import com.bishop.FinanceTracker.model.domain.Transaction;
@@ -9,6 +10,7 @@ import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -24,6 +26,7 @@ public class TrackerController {
 
     private final TransactionService transactionService;
     private final CategoryService categoryService;
+    private final TestWebClient testWebClient;
 
     @PostMapping("/submit-transaction")
     @CrossOrigin(origins = "http://localhost:3000")
@@ -60,7 +63,19 @@ public class TrackerController {
 
     @GetMapping("/flux-test")
     public Flux<Integer> getFlux() {
-        return Flux.just(1,2,3,4,5).delayElements(Duration.ofSeconds(1));
+        return Flux.just(1,2,3,4,5).delayElements(Duration.ofSeconds(2));
+    }
+
+    @GetMapping("/web-test")
+    public ResponseEntity triggerFlux() {
+        testWebClient.triggerFlux();
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/submit-test")
+    public ResponseEntity triggerInsert() {
+        testWebClient.triggerFlux();
+        return ResponseEntity.ok().build();
     }
 
 }

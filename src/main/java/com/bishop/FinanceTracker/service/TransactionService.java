@@ -56,7 +56,7 @@ public class TransactionService {
         }
         else {
             log.info("No Transactions present in transactionsJson. No updates will be made");
-            return Flux.fromIterable(List.of(SaveTransactionResponse.badRequest("No transaction present in payload", transactionsJson.toString(), "Cannot save empty transaction list")));
+            return Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload", transactionsJson.toString(), "Cannot save empty transaction list"));
         }
     }
 
