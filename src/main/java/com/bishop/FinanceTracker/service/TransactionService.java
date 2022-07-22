@@ -10,6 +10,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -33,6 +34,8 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private Cache<Long, Transaction> transactionCache;
 
+    private static final String CONSTRAINT_VIOLOATION_MESSAGE = "Error on field: %s. Reason: %s";
+
     @PostConstruct
     public void init() {
         transactionCache = Caffeine.newBuilder()
@@ -43,18 +46,17 @@ public class TransactionService {
 
     public Flux<SaveTransactionResponse> addNewTransactions(TransactionsJson transactionsJson) {
         long startTime = System.currentTimeMillis();
-        if(nonNull(transactionsJson.getTransactionJsonList()) && transactionsJson.getTransactionJsonList().size() > 0) {
+        if (nonNull(transactionsJson.getTransactionJsonList()) && transactionsJson.getTransactionJsonList().size() > 0) {
             Set<ConstraintViolation<TransactionJson>> violations = new HashSet<>();
             transactionsJson.getTransactionJsonList().stream().forEach(tj -> {
                 violations.addAll(jsonValidator.validateJson(tj));
             });
-            if(violations.size() > 0) {
+            if (violations.size() > 0) {
                 return Flux.fromIterable(violations.stream().map(v -> SaveTransactionResponse.badRequest("Request Failed", null, v.getMessage())).collect(Collectors.toList()));
             }
             return Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
-            .map(tj -> addNewTransaction(tj)));
-        }
-        else {
+                    .map(tj -> addNewTransaction(tj)));
+        } else {
             log.info("No Transactions present in transactionsJson. No updates will be made");
             return Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload", transactionsJson.toString(), "Cannot save empty transaction list"));
         }
@@ -65,7 +67,10 @@ public class TransactionService {
         Set<ConstraintViolation<TransactionJson>> validationResult = jsonValidator.validateJson(transactionJson);
         if (validationResult.size() > 0) {
             log.error("Failed to save new transaction, constraint violation on input: {}", validationResult);
-            return SaveTransactionResponse.badRequest("constraint violation found", transactionJson.toString(), validationResult.toString());
+            StringBuilder constraintViolation = new StringBuilder();
+            validationResult
+                    .forEach(cv -> constraintViolation.append(String.format(CONSTRAINT_VIOLOATION_MESSAGE, cv.getPropertyPath(), cv.getMessage())));
+            return SaveTransactionResponse.badRequest(constraintViolation.toString(), transactionJson.toString(), validationResult.toString());
         }
         Transaction newTransaction = Transaction.from(transactionJson);
         try {
@@ -77,6 +82,11 @@ public class TransactionService {
         transactionCache.put(newTransaction.getTransactionId(), newTransaction);
         log.info("Saved new transaction: {} in {} milliseconds", newTransaction, System.currentTimeMillis() - startTime);
         return SaveTransactionResponse.success(String.format("Successfully saved transaction with id %s", newTransaction.getTransactionId()), newTransaction.toString(), null);
+    }
+
+    public ResponseEntity addTransaction(TransactionJson transactionJson) {
+        SaveTransactionResponse response = addNewTransaction(transactionJson);
+        return new ResponseEntity(response, response.getStatus());
     }
 
     public List<Transaction> getAll() {

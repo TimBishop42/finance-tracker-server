@@ -1,16 +1,36 @@
-create table transaction (
-  transaction_id BIGINT UNSIGNED not null,
-  category varchar(100) not null,
-  amount float(4) not null,
-  transaction_date BIGINT UNSIGNED not null,
-  comment varchar(100),
-  essential bool not null,
-  create_time BIGINT UNSIGNED not null,
-  PRIMARY KEY(transaction_id)
+
+--Mysql
+create table transactions(
+  transaction_id INTEGER PRIMARY KEY AUTOINCREMENT not null,
+  category TEXT not null,
+  amount REAL not null,
+  transaction_date TEXT not null,
+  transaction_date_time INTEGER UNSIGNED not null,
+  comment TEXT,
+  essential INTEGER not null,
+  create_time INTEGER UNSIGNED not null
   );
 
- CREATE TABLE category (
-  category_name VARCHAR(100) NOT NULL,
-  create_date BIGINT UNSIGNED not null,
+ CREATE TABLE category(
+  category_name TEXT NOT NULL,
+  create_date INTEGER UNSIGNED not null,
+  PRIMARY KEY (category_name)
+  );
+
+--  SqLite
+create table transactions(
+  transaction_id INTEGER PRIMARY KEY AUTOINCREMENT not null,
+  category TEXT not null,
+  amount REAL not null,
+  transaction_date TEXT not null,
+  transaction_date_time INTEGER UNSIGNED not null,
+  comment TEXT,
+  essential INTEGER not null,
+  create_time INTEGER UNSIGNED not null
+  );
+
+ CREATE TABLE category(
+  category_name TEXT NOT NULL,
+  create_date INTEGER UNSIGNED not null,
   PRIMARY KEY (category_name)
   );

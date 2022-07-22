@@ -5,22 +5,23 @@ import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
+import org.hibernate.annotations.GenericGenerator;
 
-import javax.persistence.Column;
-import javax.persistence.Entity;
-import javax.persistence.GeneratedValue;
-import javax.persistence.Id;
+import javax.persistence.*;
 import java.math.BigDecimal;
 import java.time.ZoneId;
 
 @Data
-@Entity
+@Entity(name = "transactions")
 @Builder
+@NoArgsConstructor
 @AllArgsConstructor
 public class Transaction {
 
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy= GenerationType.AUTO,generator="native")
+    @GenericGenerator(name = "native",strategy = "native")
     private Long transactionId;
 
     @Column(nullable = false)

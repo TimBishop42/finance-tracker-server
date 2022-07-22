@@ -29,14 +29,12 @@ public class TrackerController {
     private final TestWebClient testWebClient;
 
     @PostMapping("/submit-transaction")
-    @CrossOrigin(origins = "http://localhost:3000")
-    public Mono<SaveTransactionResponse> submitTransaction(@RequestBody final TransactionJson transactionJson) {
+    public Mono<ResponseEntity> submitTransaction(@RequestBody final TransactionJson transactionJson) {
         log.info("Received request to save new transaction: {}", transactionJson);
-        return Mono.just(transactionService.addNewTransaction(transactionJson));
+        return Mono.just(transactionService.addTransaction(transactionJson));
     }
 
     @PostMapping("/submit-transaction-batch")
-    @CrossOrigin(origins = "http://localhost:3000")
     public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final TransactionsJson transactionsJson) {
         log.info("Received request to save new transaction: {}", transactionsJson);
         return transactionService.addNewTransactions(transactionsJson);
