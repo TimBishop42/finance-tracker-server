@@ -10,8 +10,10 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
 
@@ -34,7 +36,7 @@ public class CategoryService {
 
     public List<Category> getAllCategories() {
         long startTime = System.currentTimeMillis();
-        List<Category> categories = new ArrayList<>(categoryCache.asMap().values());
+        List<Category> categories = categoryCache.asMap().values().stream().sorted(Comparator.comparing(Category::getCategoryName)).collect(Collectors.toList());
         log.info("Successfully retrieved categories in {} milliseconds", System.currentTimeMillis() - startTime);
         return categories;
     }

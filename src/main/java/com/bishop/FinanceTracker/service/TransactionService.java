@@ -16,10 +16,7 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.nonNull;
@@ -91,7 +88,7 @@ public class TransactionService {
 
     public List<Transaction> getAll() {
         long startTime = System.currentTimeMillis();
-        List<Transaction> transactions = new ArrayList<>(transactionCache.asMap().values());
+        List<Transaction> transactions = transactionCache.asMap().values().stream().sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;
     }
