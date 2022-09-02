@@ -21,7 +21,7 @@ import java.util.List;
 @Data
 @Slf4j
 @RestController
-@RequestMapping(value="/finance")
+@RequestMapping(value="/api/finance")
 public class TrackerController {
 
     private final TransactionService transactionService;
