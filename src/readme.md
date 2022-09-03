@@ -10,4 +10,5 @@
 - Add paging to transactions call
 - Add functionality to delete Transaction entries
 - Add new page to display some use data aggregation
+- Refactor aggregation into separate batching service
     
