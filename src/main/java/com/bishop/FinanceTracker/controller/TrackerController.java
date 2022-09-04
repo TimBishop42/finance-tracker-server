@@ -3,9 +3,12 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.Category;
+import com.bishop.FinanceTracker.model.domain.MonthYearKey;
+import com.bishop.FinanceTracker.model.domain.SummarizingMonth;
 import com.bishop.FinanceTracker.model.domain.Transaction;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
+import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
 import lombok.Data;
@@ -17,6 +20,7 @@ import reactor.core.publisher.Mono;
 
 import java.time.Duration;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Slf4j
@@ -26,6 +30,7 @@ public class TrackerController {
 
     private final TransactionService transactionService;
     private final CategoryService categoryService;
+    private final AggregationService aggregationService;
     private final TestWebClient testWebClient;
 
     @PostMapping("/submit-transaction")
@@ -51,6 +56,12 @@ public class TrackerController {
     public Mono<List<Category>> getAllCategories() {
         log.info("Received request to get all categories");
         return Mono.just(categoryService.getAllCategories());
+    }
+
+    @GetMapping("/get-summary-months")
+    public Mono<Map<MonthYearKey, SummarizingMonth>> getSummaryMonths() {
+        log.info("Received request to get summary months");
+        return Mono.just(aggregationService.summarizedMonths());
     }
 
     @PostMapping("/add-category")

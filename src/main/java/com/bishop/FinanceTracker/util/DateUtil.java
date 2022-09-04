@@ -1,7 +1,9 @@
 package com.bishop.FinanceTracker.util;
 
+import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
+import java.text.SimpleDateFormat;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.Month;
@@ -17,9 +19,15 @@ public class DateUtil {
 
     private static final String DISPLAY_DATE_TIME = "dd-MM-yyyy";
 
-    public static Date getDateFromString(String input) {
+    public static Date getDateFromMillisString(String input) {
         long millisTime = Long.parseLong(input);
         return new Date(millisTime);
+    }
+
+    @SneakyThrows
+    public static Date getDateFromDateString(String dateString) {
+        SimpleDateFormat sdf = new SimpleDateFormat(DISPLAY_DATE_TIME);
+        return sdf.parse(dateString);
     }
 
     public static String getLocalizedDateString(Long epochTime, ZoneId zoneId) {
@@ -34,13 +42,13 @@ public class DateUtil {
 
     public static Month getMonthFromStringDate(String date) {
         Calendar tDate = Calendar.getInstance();
-        tDate.setTime(getDateFromString(date));
-        return Month.of(tDate.get(Calendar.MONTH));
+        tDate.setTime(getDateFromDateString(date));
+        return Month.of(tDate.get(Calendar.MONTH) + 1);
     }
 
     public static int getYearFromStringDate(String transactionDate) {
         Calendar tDate = Calendar.getInstance();
-        tDate.setTime(getDateFromString(transactionDate));
+        tDate.setTime(getDateFromDateString(transactionDate));
         return tDate.get(Calendar.YEAR);
     }
 }
