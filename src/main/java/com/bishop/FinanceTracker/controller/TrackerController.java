@@ -2,10 +2,7 @@ package com.bishop.FinanceTracker.controller;
 
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
-import com.bishop.FinanceTracker.model.domain.Category;
-import com.bishop.FinanceTracker.model.domain.MonthYearKey;
-import com.bishop.FinanceTracker.model.domain.SummarizingMonth;
-import com.bishop.FinanceTracker.model.domain.Transaction;
+import com.bishop.FinanceTracker.model.domain.*;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
 import com.bishop.FinanceTracker.service.AggregationService;
@@ -19,6 +16,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.time.Duration;
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 
@@ -59,7 +57,7 @@ public class TrackerController {
     }
 
     @GetMapping("/get-summary-months")
-    public Mono<Map<MonthYearKey, SummarizingMonth>> getSummaryMonths() {
+    public Mono<List<DisplayMonth>> getSummaryMonths() {
         log.info("Received request to get summary months");
         return Mono.just(aggregationService.summarizedMonths());
     }
