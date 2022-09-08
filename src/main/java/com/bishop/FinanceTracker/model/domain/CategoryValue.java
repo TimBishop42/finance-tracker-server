@@ -14,10 +14,11 @@ public class CategoryValue {
         this.category = category;
         this.month = month;
         this.value = 0.0;
+        this.intValue = 0;
     }
 
     public void incrementValue(Double value) {
         this.value += value;
-        this.intValue = value.intValue();
+        this.intValue = this.value.intValue();
     }
 }
