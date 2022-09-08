@@ -19,7 +19,14 @@ public class AggregationService {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
-    public List<DisplayMonth> summarizedMonths() {
+    public List<DisplayMonth> aggregateDisplayMonths() {
+        return getDisplayMonths(summarizedMonths())
+                .stream()
+                .sorted(Comparator.comparing(DisplayMonth::getMonth))
+                .collect(Collectors.toList());
+    }
+
+    private Collection<SummarizingMonth> summarizedMonths() {
         List<Transaction> allTransactions = transactionService.getAll();
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
@@ -31,7 +38,7 @@ public class AggregationService {
                             .year(DateUtil.getYearFromStringDate(t.getTransactionDate()))
                             .build();
                     monthsMap.computeIfAbsent(key, k -> SummarizingMonth.builder()
-                            .categoryValues(categoryService.getAllCategories().stream().map(c -> new CategoryValue(c.getCategoryName()))
+                            .categoryValues(categoryService.getAllCategories().stream().map(c -> new CategoryValue(c.getCategoryName(), k.getMonth()))
                                     .collect(Collectors.toMap(CategoryValue::getCategory, Function.identity())))
                             .month(Month.valueOf(k.getMonth()))
                             .year(k.getYear())
@@ -44,7 +51,7 @@ public class AggregationService {
                     }
 
                 });
-        return getDisplayMonths(monthsMap.values());
+        return monthsMap.values();
     }
 
     private List<DisplayMonth> getDisplayMonths(Collection<SummarizingMonth> values) {
