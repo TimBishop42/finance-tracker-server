@@ -7,15 +7,15 @@ public class CategoryValue {
 
     private String category;
     private String month;
-    private Double value;
+    private Integer value;
 
     public CategoryValue(String category, String month) {
         this.category = category;
         this.month = month;
-        this.value = 0.0;
+        this.value = 0;
     }
 
     public void incrementValue(Double value) {
-        this.value += value;
+        this.value += value.intValue();
     }
 }
