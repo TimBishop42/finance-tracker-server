@@ -16,6 +16,10 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -89,6 +93,19 @@ public class TransactionService {
     public List<Transaction> getAll() {
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap().values().stream().sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
+        log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
+        return transactions;
+    }
+
+    public List<Transaction> getAllGreaterThanDate() {
+        //Hardcoded to 1st Jan for now
+        long greaterThanDateTime = LocalDateTime.of(2023, 1, 1, 0, 0, 0)
+                .toEpochSecond(ZoneOffset.of("Z")) * 1000; //1000 to match against millis, Z for UTC
+        long startTime = System.currentTimeMillis();
+        List<Transaction> transactions = transactionCache.asMap()
+                .values().stream()
+                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+                .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;
     }

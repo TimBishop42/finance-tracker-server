@@ -46,7 +46,7 @@ public class TrackerController {
     @GetMapping("/find-all-transactions")
     public Flux<Transaction> getAllTransactions() {
         log.info("Received request to get all transactions");
-        return Flux.fromIterable(transactionService.getAll());
+        return Flux.fromIterable(transactionService.getAllGreaterThanDate());
     }
 
     @GetMapping("/get-categories")
