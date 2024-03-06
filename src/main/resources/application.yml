@@ -1,9 +1,9 @@
 server.port: 40010
 spring:
   datasource:
-    url: jdbc:sqlite:/local/db/finance.db
-    driverClassName: org.sqlite.JDBC
-#    username: root
-#    password: ##OVERRIDE
+    url: jdbc:mariadb://maria-db-1:3306/finance
+    driverClassName: org.mariadb.jdbc.Driver
+    username: OverideMe
+    password: OverideMe
   jpa:
     database-platform: org.hibernate.dialect.MySQL5InnoDBDialect

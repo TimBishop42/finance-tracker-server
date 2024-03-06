@@ -1,0 +1,32 @@
+version: '3'
+volumes:
+  data:
+services:
+  finance-tracker:
+    image: finance/server
+    environment:
+      spring.datasource.url: jdbc:mariadb://maria-db:3306/finance
+#      spring.datasource.driverClassName: org.mariadb.jdbc.Driver
+      spring.datasource.username: root
+      spring.datasource.password: password
+      spring.jpa.database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
+    ports:
+      - "8080:40010"
+    depends_on:
+      - maria-db
+  maria-db:
+    image: mariadb
+    environment:
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_DATABASE: finance
+      MYSQL_USER: user
+      MYSQL_PASSWORD: password
+    volumes:
+      - data:/var/lib/mysql
+      - ./src/resources/maria:/docker-entrypoint-initdb.d
+    ports:
+      - "3306:3306"
+  finance-ui:
+    image: finance-ui
+    ports:
+      - "3000:80"
