@@ -28,5 +28,15 @@
 
 # Run config on server
 - Service config: `/etc/systemd/system/finance-tracker-server.service`
+
+# Docker build and deploy
+- docker build -t finance/server .
+- docker tag finance/server tbished/finance-server:v2
+- docker push tbished/finance-server:v2
+
+# Deploying to synology
+- log into synology on local netork
+- stop finance project
+- update yaml to pull new tag
   
     

@@ -16,8 +16,6 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.*;
@@ -42,21 +40,21 @@ public class TransactionService {
         transactionCache = Caffeine.newBuilder()
                 .maximumSize(10000)
                 .build();
-        fetchAll().stream().forEach(t -> transactionCache.put(t.getTransactionId(), t));
+        fetchAll().forEach(t -> transactionCache.put(t.getTransactionId(), t));
     }
 
     public Flux<SaveTransactionResponse> addNewTransactions(TransactionsJson transactionsJson) {
         long startTime = System.currentTimeMillis();
         if (nonNull(transactionsJson.getTransactionJsonList()) && transactionsJson.getTransactionJsonList().size() > 0) {
             Set<ConstraintViolation<TransactionJson>> violations = new HashSet<>();
-            transactionsJson.getTransactionJsonList().stream().forEach(tj -> {
+            transactionsJson.getTransactionJsonList().forEach(tj -> {
                 violations.addAll(jsonValidator.validateJson(tj));
             });
             if (violations.size() > 0) {
                 return Flux.fromIterable(violations.stream().map(v -> SaveTransactionResponse.badRequest("Request Failed", null, v.getMessage())).collect(Collectors.toList()));
             }
             return Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
-                    .map(tj -> addNewTransaction(tj)));
+                    .map(this::addNewTransaction));
         } else {
             log.info("No Transactions present in transactionsJson. No updates will be made");
             return Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload", transactionsJson.toString(), "Cannot save empty transaction list"));
@@ -99,7 +97,7 @@ public class TransactionService {
 
     public List<Transaction> getAllGreaterThanDate() {
         //Hardcoded to 1st Jan for now
-        long greaterThanDateTime = LocalDateTime.of(2023, 1, 1, 0, 0, 0)
+        long greaterThanDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
                 .toEpochSecond(ZoneOffset.of("Z")) * 1000; //1000 to match against millis, Z for UTC
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap()

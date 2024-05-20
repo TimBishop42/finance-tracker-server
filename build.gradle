@@ -33,6 +33,7 @@ dependencies {
 	implementation group: 'org.glassfish', name: 'javax.el', version: '3.0.0'
 	implementation group: 'org.hibernate.validator', name: 'hibernate-validator'
 	implementation 'com.github.ben-manes.caffeine:caffeine'
+	implementation 'org.xerial:sqlite-jdbc:3.36.0.3'
 //	implementation group: 'org.mariadb.jdbc', name: 'mariadb-java-client', version: '3.2.0'
 	implementation group: 'org.mariadb.jdbc', name: 'mariadb-java-client', version: '3.2.0'
 	compileOnly 'org.projectlombok:lombok'

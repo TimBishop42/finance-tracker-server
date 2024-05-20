@@ -1,0 +1,18 @@
+version: '3'
+volumes:
+  data:
+services:
+  finance-tracker:
+    image: tbished/finance-server:v2
+    environment:
+      spring.datasource.url: jdbc:mariadb://192.168.0.67:3306/finance
+#      spring.datasource.driverClassName: org.mariadb.jdbc.Driver
+      spring.datasource.username: root
+      spring.datasource.password:
+      spring.jpa.database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
+    ports:
+      - "8080:40010"
+  finance-ui:
+    image: tbished/finance-ui:latest
+    ports:
+      - "3000:80"

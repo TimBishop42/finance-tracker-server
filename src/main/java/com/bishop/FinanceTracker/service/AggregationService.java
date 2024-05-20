@@ -20,8 +20,9 @@ public class AggregationService {
     private final CategoryService categoryService;
 
     public List<DisplayMonth> aggregateDisplayMonths() {
-        return getDisplayMonths(summarizedMonths())
+        return summarizedMonths()
                 .stream()
+                .map(DisplayMonth::to)
                 .sorted(Comparator.comparing(DisplayMonth::getMonth))
                 .collect(Collectors.toList());
     }
@@ -31,7 +32,7 @@ public class AggregationService {
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
 
-        allTransactions.stream()
+        allTransactions
                 .forEach(t -> {
                     MonthYearKey key = MonthYearKey.builder()
                             .month(DateUtil.getMonthFromStringDate(t.getTransactionDate()).name())
@@ -53,11 +54,4 @@ public class AggregationService {
                 });
         return monthsMap.values();
     }
-
-    private List<DisplayMonth> getDisplayMonths(Collection<SummarizingMonth> values) {
-        return values.stream()
-                .map(DisplayMonth::to)
-                .collect(Collectors.toList());
-    }
-
 }

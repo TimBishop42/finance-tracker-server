@@ -15,5 +15,7 @@ public class SummarizingMonth {
     private Month month;
     private Integer year;
 
+    private Double totalSpend;
+
     private Map<String, CategoryValue> categoryValues;
 }
