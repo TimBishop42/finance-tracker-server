@@ -4,10 +4,7 @@ import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
 import java.text.SimpleDateFormat;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.Month;
-import java.time.ZoneId;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.Calendar;
 import java.util.Date;
@@ -50,5 +47,18 @@ public class DateUtil {
         Calendar tDate = Calendar.getInstance();
         tDate.setTime(getDateFromDateString(transactionDate));
         return tDate.get(Calendar.YEAR);
+    }
+
+    public static Long getEpochMilliOfCurrentYear() {
+
+        // Create a LocalDateTime representing the start of the current year
+        LocalDateTime startOfYear = LocalDateTime.of
+                (LocalDateTime.now().getYear(), 1, 1, 0, 0, 0);
+
+        // Convert the LocalDateTime to ZonedDateTime at UTC
+        ZonedDateTime startOfYearUTC = startOfYear.atZone(ZoneOffset.UTC);
+
+        // Get the epoch milliseconds
+        return startOfYearUTC.toInstant().toEpochMilli();
     }
 }
