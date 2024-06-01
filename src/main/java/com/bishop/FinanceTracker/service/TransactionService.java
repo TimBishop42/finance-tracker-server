@@ -109,8 +109,7 @@ public class TransactionService {
         return transactions;
     }
 
-    public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentYearFilter,
-                                                       Integer yearFilter) {
+    public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentYearFilter) {
         long greaterThanDateTime;
         if(nonNull(recentYearFilter)) {
             greaterThanDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
@@ -123,6 +122,7 @@ public class TransactionService {
         List<Transaction> transactions = transactionCache.asMap()
                 .values().stream()
                 .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+                .filter(t -> isNull(t.getCategory()) || t.getCategory().equalsIgnoreCase(categoryNameFilter))
                 .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;

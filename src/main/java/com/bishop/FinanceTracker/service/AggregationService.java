@@ -28,7 +28,7 @@ public class AggregationService {
     }
 
     private Collection<SummarizingMonth> summarizedMonths() {
-        List<Transaction> allTransactions = transactionService.getAllGreaterThanDate();
+        List<Transaction> allTransactions = transactionService.getAllWithOptionalFilters(null, true);
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
 
