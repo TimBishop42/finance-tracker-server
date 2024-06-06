@@ -6,6 +6,8 @@ import lombok.extern.slf4j.Slf4j;
 import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
+import java.time.temporal.TemporalAdjusters;
 import java.util.Calendar;
 import java.util.Date;
 
@@ -60,5 +62,26 @@ public class DateUtil {
 
         // Get the epoch milliseconds
         return startOfYearUTC.toInstant().toEpochMilli();
+    }
+
+    public static long getRecentMonthStartEpochMilli() {
+        LocalDateTime now = LocalDateTime.now();
+
+        // Get the first day of the current month at midnight
+        LocalDateTime firstDayOfCurrentMonth = now.with(TemporalAdjusters.firstDayOfMonth()).truncatedTo(ChronoUnit.DAYS);
+
+        // If the current date is not in the first month, use the first day of the current month
+        LocalDateTime firstDayOfLastMonth;
+        if (now.isAfter(firstDayOfCurrentMonth)) {
+            firstDayOfLastMonth = firstDayOfCurrentMonth.minusMonths(1);
+        } else {
+            firstDayOfLastMonth = firstDayOfCurrentMonth;
+        }
+
+        // Convert to ZonedDateTime using the system default time zone
+        ZonedDateTime zonedDateTime = firstDayOfLastMonth.atZone(ZoneId.systemDefault());
+
+        // Convert to epoch milliseconds
+        return zonedDateTime.toInstant().toEpochMilli();
     }
 }

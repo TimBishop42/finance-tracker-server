@@ -21,6 +21,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.bishop.FinanceTracker.util.DateUtil.getRecentMonthStartEpochMilli;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
@@ -109,11 +110,10 @@ public class TransactionService {
         return transactions;
     }
 
-    public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentYearFilter) {
+    public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentMonthFilter) {
         long greaterThanDateTime;
-        if(nonNull(recentYearFilter)) {
-            greaterThanDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
-                    .toEpochSecond(ZoneOffset.of("Z")) * 1000;
+        if(nonNull(recentMonthFilter)) {
+            greaterThanDateTime = getRecentMonthStartEpochMilli();
         }//1000 to match against millis, Z for UTC
         else {
             greaterThanDateTime = LocalDateTime.MIN.toInstant(ZoneOffset.UTC).toEpochMilli();
@@ -134,6 +134,4 @@ public class TransactionService {
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;
     }
-
-
 }
