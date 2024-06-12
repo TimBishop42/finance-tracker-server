@@ -48,7 +48,7 @@ public class TrackerController {
             @RequestParam(value = "categoryName", required = false) String categoryName,
             @RequestParam(value = "recentMonth", required = false) Boolean recentMonth) {
         log.info("Received request to get all transactions");
-        return Flux.fromIterable(transactionService.getAllGreaterThanDate());
+        return Flux.fromIterable(transactionService.getAllWithOptionalFilters(categoryName, recentMonth));
     }
 
     @GetMapping("/get-categories")
