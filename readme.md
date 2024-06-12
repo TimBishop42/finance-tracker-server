@@ -11,8 +11,10 @@
 - Add functionality to delete Transaction entries
 - Add new page to display some use data aggregation
 - Refactor aggregation into separate batching service
+- Add ability to edit transactions in UI
+- Add poller to transactions cache on server side
 
-# Deploying
+# Deploying Raspi
 - Build java app
 - SCP file to Ubuntu server with: `scp FinanceTracker-0.0.1-SNAPSHOT.jar ubuntu@192.168.1.101:/home/ubuntu/springboot`
 - Delete existing jar file: `sudo rm /local/app/java/FinanceTracker-0.0.1-SNAPSHOT.jar`

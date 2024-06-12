@@ -11,6 +11,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -133,5 +134,14 @@ public class TransactionService {
         List<Transaction> transactions = transactionRepository.findAll();
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;
+    }
+
+    @Scheduled(cron = "0 */5 * * * *")
+    private void updateTransactionsCache() {
+        //Nuke cache
+        transactionCache.invalidateAll();
+        //Update with new transactions
+        fetchAll().forEach(t -> transactionCache.put(t.getTransactionId(), t));
+        log.info("Cache updated with {} values", transactionCache.estimatedSize());
     }
 }
