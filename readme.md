@@ -33,8 +33,8 @@
 
 # Docker build and deploy
 - docker build -t finance/server .
-- docker tag finance/server tbished/finance-server:v3
-- docker push tbished/finance-server:v3
+- docker tag finance/server tbished/finance-server:v4
+- docker push tbished/finance-server:v4
 
 # Deploying to synology
 - log into synology on local netork

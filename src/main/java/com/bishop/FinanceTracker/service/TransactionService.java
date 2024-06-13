@@ -22,6 +22,7 @@ import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static com.bishop.FinanceTracker.util.DateUtil.getFirstDayOfYearEpochMilli;
 import static com.bishop.FinanceTracker.util.DateUtil.getRecentMonthStartEpochMilli;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
@@ -98,10 +99,9 @@ public class TransactionService {
         return transactions;
     }
 
-    public List<Transaction> getAllGreaterThanDate() {
+    public List<Transaction> getAllInRecentYear() {
         //Hardcoded to 1st Jan for now
-        long greaterThanDateTime = LocalDateTime.of(2024, 1, 1, 0, 0, 0)
-                .toEpochSecond(ZoneOffset.of("Z")) * 1000; //1000 to match against millis, Z for UTC
+        long greaterThanDateTime = getFirstDayOfYearEpochMilli();
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap()
                 .values().stream()
@@ -113,26 +113,26 @@ public class TransactionService {
 
     public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentMonthFilter) {
         long greaterThanDateTime;
-        if(nonNull(recentMonthFilter)) {
+        if(nonNull(recentMonthFilter) && recentMonthFilter) {
             greaterThanDateTime = getRecentMonthStartEpochMilli();
         }//1000 to match against millis, Z for UTC
         else {
-            greaterThanDateTime = LocalDateTime.MIN.toInstant(ZoneOffset.UTC).toEpochMilli();
+            greaterThanDateTime = 0;
         }
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap()
                 .values().stream()
                 .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
-                .filter(t -> isNull(t.getCategory()) || t.getCategory().equalsIgnoreCase(categoryNameFilter))
+                .filter(t -> isNull(categoryNameFilter) || t.getCategory().equalsIgnoreCase(categoryNameFilter))
                 .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
-        log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
+        log.info("Successfully retrieved {} transactions in {} milliseconds", transactions.size(), System.currentTimeMillis() - startTime);
         return transactions;
     }
 
     private List<Transaction> fetchAll() {
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionRepository.findAll();
-        log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
+        log.info("Successfully retrieved all {} transactions in {} milliseconds", transactions.size(), System.currentTimeMillis() - startTime);
         return transactions;
     }
 

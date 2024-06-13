@@ -30,7 +30,7 @@ public class DateUtil {
     }
 
     public static String getLocalizedDateString(Long epochTime, ZoneId zoneId) {
-        if(isNull(epochTime) || isNull(zoneId)) {
+        if (isNull(epochTime) || isNull(zoneId)) {
             log.error("Unable to parse date with null input or null zoneId");
             return null;
         }
@@ -70,18 +70,20 @@ public class DateUtil {
         // Get the first day of the current month at midnight
         LocalDateTime firstDayOfCurrentMonth = now.with(TemporalAdjusters.firstDayOfMonth()).truncatedTo(ChronoUnit.DAYS);
 
-        // If the current date is not in the first month, use the first day of the current month
-        LocalDateTime firstDayOfLastMonth;
-        if (now.isAfter(firstDayOfCurrentMonth)) {
-            firstDayOfLastMonth = firstDayOfCurrentMonth.minusMonths(1);
-        } else {
-            firstDayOfLastMonth = firstDayOfCurrentMonth;
-        }
-
         // Convert to ZonedDateTime using the system default time zone
-        ZonedDateTime zonedDateTime = firstDayOfLastMonth.atZone(ZoneId.systemDefault());
+        ZonedDateTime zonedDateTime = firstDayOfCurrentMonth.atZone(ZoneId.systemDefault());
 
         // Convert to epoch milliseconds
         return zonedDateTime.toInstant().toEpochMilli();
+    }
+
+    public static long getFirstDayOfYearEpochMilli() {
+        LocalDate now = LocalDate.now();
+
+        LocalDate firstDayOfYear = now.withDayOfYear(1);
+
+        ZonedDateTime startOfDay = firstDayOfYear.atStartOfDay(ZoneId.systemDefault());
+
+        return startOfDay.toInstant().toEpochMilli();
     }
 }
