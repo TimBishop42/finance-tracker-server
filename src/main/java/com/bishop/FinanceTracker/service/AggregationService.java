@@ -64,7 +64,7 @@ public class AggregationService {
 
     public HomeData homeData() {
         long startTime = System.currentTimeMillis();
-        List<Transaction> allTransactions = transactionService.getAllGreaterThanDate();
+        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
 
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
 
