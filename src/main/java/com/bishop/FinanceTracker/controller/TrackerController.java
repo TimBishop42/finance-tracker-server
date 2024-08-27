@@ -3,6 +3,7 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
+import com.bishop.FinanceTracker.model.json.HomeData;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
 import com.bishop.FinanceTracker.service.AggregationService;
@@ -85,6 +86,12 @@ public class TrackerController {
     public ResponseEntity triggerInsert() {
         testWebClient.triggerFlux();
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/get-home-data")
+    public Mono<HomeData> getHomeData() {
+        log.info("Received request to collect home-assistant data");
+        return Mono.just(aggregationService.homeData());
     }
 
 }

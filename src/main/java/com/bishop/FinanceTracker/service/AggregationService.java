@@ -1,12 +1,17 @@
 package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.domain.*;
+import com.bishop.FinanceTracker.model.json.HomeData;
 import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.time.Month;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAdjusters;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -26,6 +31,8 @@ public class AggregationService {
                 .sorted(Comparator.comparing(DisplayMonth::getMonth))
                 .collect(Collectors.toList());
     }
+
+    private static final Double MONTHLY_BUDGET_TARGET = 11000.0;
 
     private Collection<SummarizingMonth> summarizedMonths() {
         List<Transaction> allTransactions = transactionService.getAllInRecentYear();
@@ -53,5 +60,43 @@ public class AggregationService {
 
                 });
         return monthsMap.values();
+    }
+
+    public HomeData homeData() {
+        long startTime = System.currentTimeMillis();
+        List<Transaction> allTransactions = transactionService.getAllGreaterThanDate();
+
+        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
+
+        ZonedDateTime firstDayOfLastMonth = now
+                .minusMonths(1)
+                .with(TemporalAdjusters.firstDayOfMonth());
+
+        ZonedDateTime firstDayOfCurrentMonth = now
+                .with(TemporalAdjusters.firstDayOfMonth());
+
+        Double priorMonthAmount = allTransactions.stream()
+                .filter(t -> t.getTransactionDateTime() > firstDayOfLastMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000
+                        && t.getTransactionDateTime() < firstDayOfCurrentMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000)
+                .mapToDouble(t -> t.getAmount().doubleValue())
+                .sum();
+        log.info("Sum for prior month {}", priorMonthAmount);
+
+        Double currentMonthAmount = allTransactions.stream()
+                .filter(t -> t.getTransactionDateTime() > firstDayOfCurrentMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000)
+                .mapToDouble(t -> t.getAmount().doubleValue())
+                .sum();
+        log.info("Sum for current month {}", currentMonthAmount);
+
+        HomeData homeResult = HomeData.builder()
+                .currentMonth(currentMonthAmount.intValue())
+                .priorMonth(priorMonthAmount.intValue())
+                .status(currentMonthAmount < MONTHLY_BUDGET_TARGET ? "WITHIN BUDGET" : "OVER BUDGET")
+                .build();
+
+        log.info("Retrieved summarized value for home data in {} millis, data: {}",
+                System.currentTimeMillis() - startTime, homeResult);
+
+        return homeResult;
     }
 }
