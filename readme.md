@@ -62,6 +62,7 @@
 - Service config: `/etc/systemd/system/finance-tracker-server.service`
 
 # Docker build and deploy
+- gradle build
 - docker build -t finance/server .
 - docker tag finance/server tbished/finance-server:v4
 - docker push tbished/finance-server:v4
