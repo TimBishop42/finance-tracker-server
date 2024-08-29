@@ -13,7 +13,6 @@ public class JsonValidator {
 
     private ValidatorFactory factory = Validation.buildDefaultValidatorFactory();
 
-
     public Set<ConstraintViolation<TransactionJson>> validateJson(TransactionJson input) {
         return factory.getValidator().validate(input);
     }

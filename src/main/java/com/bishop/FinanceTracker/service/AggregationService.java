@@ -76,14 +76,14 @@ public class AggregationService {
                 .with(TemporalAdjusters.firstDayOfMonth());
 
         Double priorMonthAmount = allTransactions.stream()
-                .filter(t -> t.getTransactionDateTime() > firstDayOfLastMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000
-                        && t.getTransactionDateTime() < firstDayOfCurrentMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000)
+                .filter(t -> t.getTransactionDateTime() >= firstDayOfLastMonth.toInstant().toEpochMilli()
+                        && t.getTransactionDateTime() < firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
                 .sum();
         log.info("Sum for prior month {}", priorMonthAmount);
 
         Double currentMonthAmount = allTransactions.stream()
-                .filter(t -> t.getTransactionDateTime() > firstDayOfCurrentMonth.getLong(ChronoField.INSTANT_SECONDS) * 1000)
+                .filter(t -> t.getTransactionDateTime() >= firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
                 .sum();
         log.info("Sum for current month {}", currentMonthAmount);
