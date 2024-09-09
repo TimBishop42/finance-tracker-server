@@ -63,9 +63,9 @@
 
 # Docker build and deploy
 - gradle build
-- docker build -t finance/server .
-- docker tag finance/server tbished/finance-server:v4
-- docker push tbished/finance-server:v4
+- docker build --platform linux/amd64 -t finance/server . 
+- docker tag finance/server tbished/finance-server:latest
+- docker push tbished/finance-server:latest
 
 
   

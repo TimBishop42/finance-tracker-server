@@ -39,3 +39,5 @@ out/
 *.log
 
 local.db
+
+.DS_Store

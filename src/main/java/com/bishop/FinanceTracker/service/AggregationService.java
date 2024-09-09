@@ -11,7 +11,9 @@ import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.temporal.ChronoField;
+import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -70,23 +72,25 @@ public class AggregationService {
 
         ZonedDateTime firstDayOfLastMonth = now
                 .minusMonths(1)
-                .with(TemporalAdjusters.firstDayOfMonth());
+                .with(TemporalAdjusters.firstDayOfMonth())
+                .truncatedTo(ChronoUnit.DAYS);
 
         ZonedDateTime firstDayOfCurrentMonth = now
-                .with(TemporalAdjusters.firstDayOfMonth());
+                .with(TemporalAdjusters.firstDayOfMonth())
+                .truncatedTo(ChronoUnit.DAYS);;
 
         Double priorMonthAmount = allTransactions.stream()
                 .filter(t -> t.getTransactionDateTime() >= firstDayOfLastMonth.toInstant().toEpochMilli()
                         && t.getTransactionDateTime() < firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
                 .sum();
-        log.info("Sum for prior month {}", priorMonthAmount);
+        log.info("Sum for prior month {}, prior month dateTime {}", priorMonthAmount, firstDayOfLastMonth);
 
         Double currentMonthAmount = allTransactions.stream()
                 .filter(t -> t.getTransactionDateTime() >= firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
                 .sum();
-        log.info("Sum for current month {}", currentMonthAmount);
+        log.info("Sum for current month {}, current month dateTime {}", currentMonthAmount, firstDayOfCurrentMonth);
 
         HomeData homeResult = HomeData.builder()
                 .currentMonth(currentMonthAmount.intValue())
