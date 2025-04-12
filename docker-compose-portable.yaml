@@ -1,0 +1,53 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance-user
+      POSTGRES_PASSWORD: change_me
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance-user -d finance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - finance_network
+
+  finance-tracker:
+    image: tbished/finance-server:latest
+    environment:
+      spring.datasource.url: jdbc:postgresql://postgres:5432/finance
+      spring.datasource.username: finance-user
+      spring.datasource.password:
+      spring.jpa.database-platform: org.hibernate.dialect.PostgreSQLDialect
+      spring.datasource.driverClassName: org.postgresql.Driver
+    ports:
+      - "8080:40010"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - finance_network
+
+  finance-ui:
+    image: tbished/finance-ui:v11
+    ports:
+      - "3050:80"
+    environment:
+      - REACT_APP_BACKEND_URL=http://finance-tracker:40010/api/finance
+    depends_on:
+      finance-tracker:
+        condition: service_started
+    networks:
+      - finance_network
+
+volumes:
+  postgres_data:
+
+networks:
+  finance_network:
+    driver: bridge

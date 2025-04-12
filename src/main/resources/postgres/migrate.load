@@ -1,0 +1,15 @@
+LOAD DATABASE
+     FROM      mysql://root@localhost/finance
+     INTO      postgresql://finance-user@localhost/finance
+
+WITH include drop, create tables, create indexes, reset sequences
+
+CAST
+     column transactions.transaction_id to serial drop typemod,
+     column transactions.amount to numeric drop typemod,
+     column transactions.transaction_date_time to bigint drop typemod,
+     column transactions.create_time to bigint drop typemod,
+     column category.create_date to bigint drop typemod
+
+BEFORE LOAD DO
+     $$ create schema if not exists public; $$; 

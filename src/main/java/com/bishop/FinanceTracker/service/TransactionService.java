@@ -105,7 +105,7 @@ public class TransactionService {
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap()
                 .values().stream()
-                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+//                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
                 .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;

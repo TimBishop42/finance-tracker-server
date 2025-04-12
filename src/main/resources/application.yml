@@ -1,9 +1,9 @@
 server.port: 40010
 spring:
   datasource:
-    url: jdbc:mariadb://maria-db-1:3306/finance
-    driverClassName: org.mariadb.jdbc.Driver
+    url: jdbc:postgresql://postgres:5432/finance
+    driverClassName: org.postgresql.Driver
     username: OverideMe
     password: OverideMe
   jpa:
-    database-platform: org.hibernate.dialect.MySQL5InnoDBDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect

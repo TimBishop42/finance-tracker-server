@@ -20,6 +20,8 @@
 - start service
 
 ### Synology Nas
+** Just use the docker-compose portable file**
+Alternatively, set up a MariaDB instance
 #### Database
 - MariaDB works well on synology - download from package centre
 - Set up a new USer + DB in Maria
@@ -59,7 +61,7 @@
 - Restart apache for front end: `sudo systemctl start apache2`
 
 # Run config on server (raspi)
-- Service config: `/etc/systemd/system/finance-tracker-server.service`
+- Service config: `/etc/systemd/system/finance-tracker-server.service`gra
 
 # Docker build and deploy
 - gradle build
