@@ -14,6 +14,7 @@ import java.time.ZoneId;
 
 @Data
 @Entity(name = "transactions")
+@Table(name = "transactions")
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor

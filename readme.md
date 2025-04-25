@@ -69,6 +69,15 @@ Alternatively, set up a MariaDB instance
 - docker tag finance/server tbished/finance-server:latest
 - docker push tbished/finance-server:latest
 
+# Embedded Postgres
+docker-compose-portable contains config for an embedded postgres image, so that no server side DB setup is required.
+
+To make changes to the postgres images base schema, modify the schema files in [postgres-schema](src/main/resources/postgres/init.sql)
+
+Then rebuild the custom postgres image and push to repo:
+- docker buildx build --platform linux/amd64 -t tbished/finance-postgres:latest -f Dockerfile.postgres .
+- docker push tbished/finance-postgres:latest
+
 
   
     

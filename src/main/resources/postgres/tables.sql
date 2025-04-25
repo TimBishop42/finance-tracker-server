@@ -1,6 +1,6 @@
 --PostgreSQL
 
-create table transactions(
+create table if not exists transactions(
   transaction_id SERIAL PRIMARY KEY not null,
   category VARCHAR(50) not null,
   amount NUMERIC(10,2) not null,
@@ -11,7 +11,7 @@ create table transactions(
   create_time BIGINT not null
 );
 
-CREATE TABLE category(
+CREATE TABLE if not exists category(
   category_name VARCHAR(50) NOT NULL,
   create_date BIGINT not null,
   PRIMARY KEY (category_name)

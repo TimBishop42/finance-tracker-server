@@ -2,11 +2,14 @@ version: '3.8'
 
 services:
   postgres:
-    image: postgres:15
+    image: tbished/finance-postgres:latest
+    platform: linux/amd64
     environment:
       POSTGRES_DB: finance
       POSTGRES_USER: finance-user
       POSTGRES_PASSWORD: change_me
+    ports:
+      - "5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

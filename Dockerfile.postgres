@@ -1,0 +1,9 @@
+FROM postgres:15
+
+# Copy initialization script
+COPY src/main/resources/postgres/init.sql /docker-entrypoint-initdb.d/01-init.sql
+
+# Set environment variables
+ENV POSTGRES_DB=finance
+ENV POSTGRES_USER=finance-user
+ENV POSTGRES_PASSWORD=change_me 
