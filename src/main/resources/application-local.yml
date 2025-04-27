@@ -7,5 +7,10 @@ spring:
   datasource:
     url: jdbc:sqlite:finance.db
     driverClassName: org.sqlite.JDBC
+  jpa:
+    database-platform: com.bishop.FinanceTracker.config.SQLiteDialect
+    hibernate:
+      ddl-auto: none
+    show-sql: true
 #  jpa:
 #    database-platform: org.hibernate.dialect.H2Dialect

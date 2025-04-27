@@ -41,7 +41,7 @@ public class TrackerController {
 
     @PostMapping("/submit-transaction-batch")
     public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final TransactionsJson transactionsJson) {
-        log.info("Received request to save new transaction: {}", transactionsJson);
+        log.info("Received request to save new transactions list: {}", transactionsJson);
         return transactionService.addNewTransactions(transactionsJson);
     }
 
@@ -70,23 +70,6 @@ public class TrackerController {
     public Mono<String> addCategory(@RequestBody String category) {
         log.info("Received request to add category");
         return Mono.just(categoryService.addCategory(category));
-    }
-
-    @GetMapping("/flux-test")
-    public Flux<Integer> getFlux() {
-        return Flux.just(1,2,3,4,5).delayElements(Duration.ofSeconds(2));
-    }
-
-    @GetMapping("/web-test")
-    public ResponseEntity triggerFlux() {
-        testWebClient.triggerFlux();
-        return ResponseEntity.ok().build();
-    }
-
-    @GetMapping("/submit-test")
-    public ResponseEntity triggerInsert() {
-        testWebClient.triggerFlux();
-        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/get-home-data")
