@@ -1,7 +1,7 @@
 package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.domain.Category;
-import com.bishop.FinanceTracker.model.json.DeleteCategoryRequest;
+import com.bishop.FinanceTracker.model.json.CategoryRequest;
 import com.bishop.FinanceTracker.repository.CategoryRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
@@ -13,7 +13,6 @@ import org.springframework.transaction.annotation.Transactional;
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
 import javax.validation.Validator;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -81,8 +80,8 @@ public class CategoryService {
     }
 
     @Transactional
-    public void deleteCategory(DeleteCategoryRequest request) {
-        Set<ConstraintViolation<DeleteCategoryRequest>> violations = validator.validate(request);
+    public void deleteCategory(CategoryRequest request) {
+        Set<ConstraintViolation<CategoryRequest>> violations = validator.validate(request);
         if (!violations.isEmpty()) {
             throw new IllegalArgumentException("Invalid request: " + violations.stream()
                     .map(ConstraintViolation::getMessage)

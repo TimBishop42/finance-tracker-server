@@ -3,7 +3,7 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
-import com.bishop.FinanceTracker.model.json.DeleteCategoryRequest;
+import com.bishop.FinanceTracker.model.json.CategoryRequest;
 import com.bishop.FinanceTracker.model.json.HomeData;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
@@ -17,10 +17,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import java.time.Duration;
-import java.util.Collection;
 import java.util.List;
-import java.util.Map;
 
 @Data
 @Slf4j
@@ -67,9 +64,9 @@ public class TrackerController {
     }
 
     @PostMapping("/add-category")
-    public Mono<String> addCategory(@RequestBody String category) {
-        log.info("Received request to add category");
-        return Mono.just(categoryService.addCategory(category));
+    public Mono<String> addCategory(@RequestBody CategoryRequest request) {
+        log.info("Received request to add category: {}", request.getCategoryName());
+        return Mono.just(categoryService.addCategory(request.getCategoryName()));
     }
 
     @GetMapping("/get-home-data")
@@ -79,7 +76,7 @@ public class TrackerController {
     }
 
     @PostMapping("/delete-category")
-    public Mono<ResponseEntity<String>> deleteCategory(@RequestBody DeleteCategoryRequest request) {
+    public Mono<ResponseEntity<String>> deleteCategory(@RequestBody CategoryRequest request) {
         log.info("Received request to delete category: {}", request.getCategoryName());
         try {
             categoryService.deleteCategory(request);
