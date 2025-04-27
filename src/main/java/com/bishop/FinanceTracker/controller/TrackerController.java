@@ -3,6 +3,7 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
+import com.bishop.FinanceTracker.model.json.DeleteCategoryRequest;
 import com.bishop.FinanceTracker.model.json.HomeData;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
@@ -92,6 +93,17 @@ public class TrackerController {
     public Mono<HomeData> getHomeData() {
         log.info("Received request to collect home-assistant data");
         return Mono.just(aggregationService.homeData());
+    }
+
+    @PostMapping("/delete-category")
+    public Mono<ResponseEntity<String>> deleteCategory(@RequestBody DeleteCategoryRequest request) {
+        log.info("Received request to delete category: {}", request.getCategoryName());
+        try {
+            categoryService.deleteCategory(request);
+            return Mono.just(ResponseEntity.ok("Category deleted successfully"));
+        } catch (IllegalArgumentException e) {
+            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
     }
 
 }

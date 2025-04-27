@@ -1,18 +1,23 @@
 package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.domain.Category;
+import com.bishop.FinanceTracker.model.json.DeleteCategoryRequest;
 import com.bishop.FinanceTracker.repository.CategoryRepository;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.annotation.PostConstruct;
+import javax.validation.ConstraintViolation;
+import javax.validation.Validator;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static java.util.Objects.isNull;
@@ -23,7 +28,7 @@ import static java.util.Objects.isNull;
 public class CategoryService {
 
     private final CategoryRepository categoryRepository;
-
+    private final Validator validator;
     private Cache<String, Category> categoryCache;
 
     @PostConstruct
@@ -60,10 +65,37 @@ public class CategoryService {
         return "Add SUCCESS: New category name saved";
     }
 
-    private List<Category> fetchAll() {
+    public List<Category> fetchAll() {
         long startTime = System.currentTimeMillis();
         List<Category> categories = categoryRepository.findAll();
         log.info("Successfully retrieved categories in {} milliseconds", System.currentTimeMillis() - startTime);
         return categories;
+    }
+
+    public Optional<Category> getCategory(String categoryName) {
+        return Optional.ofNullable(categoryCache.getIfPresent(categoryName));
+    }
+
+    public List<Category> saveAll(List<Category> categories) {
+        return categoryRepository.saveAll(categories);
+    }
+
+    @Transactional
+    public void deleteCategory(DeleteCategoryRequest request) {
+        Set<ConstraintViolation<DeleteCategoryRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException("Invalid request: " + violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .collect(Collectors.joining(", ")));
+        }
+
+        String categoryName = request.getCategoryName();
+        if (!categoryRepository.existsById(categoryName)) {
+            throw new IllegalArgumentException("Category not found: " + categoryName);
+        }
+
+        categoryRepository.deleteById(categoryName);
+        categoryCache.invalidate(categoryName);
+        log.info("Successfully deleted category: {}", categoryName);
     }
 }

@@ -29,7 +29,7 @@ public class DatabaseConfig {
             if (env.acceptsProfiles("test")) {
                 schema = "public";
             } else if (env.acceptsProfiles("local")) {
-                schema = "public";
+                schema = ""; // Empty schema for SQLite
             } else {
                 schema = "finance";
             }
