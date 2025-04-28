@@ -2,6 +2,7 @@ package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.Transaction;
+import com.bishop.FinanceTracker.model.json.TransactionDeleteRequest;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
 import com.bishop.FinanceTracker.repository.TransactionRepository;
@@ -143,5 +144,17 @@ public class TransactionService {
         //Update with new transactions
         fetchAll().forEach(t -> transactionCache.put(t.getTransactionId(), t));
         log.info("Cache updated with {} values", transactionCache.estimatedSize());
+    }
+
+    public void deleteTransaction(TransactionDeleteRequest request) {
+        long startTime = System.currentTimeMillis();
+        Transaction transaction = transactionCache.getIfPresent(request.getTransactionId());
+        if (isNull(transaction)) {
+            log.error("Transaction with id {} not found in cache", request.getTransactionId());
+            throw new IllegalArgumentException("Transaction not found");
+        }
+        transactionRepository.deleteById(request.getTransactionId());
+        transactionCache.invalidate(request.getTransactionId());
+        log.info("Deleted transaction with id {} in {} milliseconds", request.getTransactionId(), System.currentTimeMillis() - startTime);
     }
 }

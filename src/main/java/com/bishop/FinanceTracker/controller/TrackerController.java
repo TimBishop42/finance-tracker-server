@@ -3,10 +3,7 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
-import com.bishop.FinanceTracker.model.json.CategoryRequest;
-import com.bishop.FinanceTracker.model.json.HomeData;
-import com.bishop.FinanceTracker.model.json.TransactionJson;
-import com.bishop.FinanceTracker.model.json.TransactionsJson;
+import com.bishop.FinanceTracker.model.json.*;
 import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
@@ -81,6 +78,17 @@ public class TrackerController {
         try {
             categoryService.deleteCategory(request);
             return Mono.just(ResponseEntity.ok("Category deleted successfully"));
+        } catch (IllegalArgumentException e) {
+            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/delete-transaction")
+    public Mono<ResponseEntity<String>> deleteTransaction(@RequestBody TransactionDeleteRequest request) {
+        log.info("Received request to delete transaction: {}", request.getTransactionId());
+        try {
+            transactionService.deleteTransaction(request);
+            return Mono.just(ResponseEntity.ok("Transaction deleted successfully"));
         } catch (IllegalArgumentException e) {
             return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
         }
