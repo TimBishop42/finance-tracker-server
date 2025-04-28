@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.model.domain;
 
+import com.bishop.FinanceTracker.config.BooleanToIntegerConverter;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.AllArgsConstructor;
@@ -21,8 +22,7 @@ import java.time.ZoneId;
 public class Transaction {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO, generator = "native")
-    @GenericGenerator(name = "native", strategy = "native")
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long transactionId;
 
     @Column(nullable = false)
@@ -39,6 +39,8 @@ public class Transaction {
 
     private String comment;
 
+    @Column(nullable = false)
+    @Convert(converter = BooleanToIntegerConverter.class)
     private boolean essential;
 
     private Long createTime;

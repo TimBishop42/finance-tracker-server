@@ -25,14 +25,7 @@ public class DatabaseConfig {
     @Bean
     public HibernatePropertiesCustomizer hibernatePropertiesCustomizer() {
         return hibernateProperties -> {
-            String schema;
-            if (env.acceptsProfiles("test")) {
-                schema = "public";
-            } else if (env.acceptsProfiles("local")) {
-                schema = ""; // Empty schema for SQLite
-            } else {
-                schema = "finance";
-            }
+            String schema = env.acceptsProfiles("test") ? "public" : "finance";
             log.info("Using schema: {} for profiles: {}", schema, String.join(", ", env.getActiveProfiles()));
             hibernateProperties.put("hibernate.default_schema", schema);
         };

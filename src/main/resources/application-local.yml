@@ -5,12 +5,14 @@ spring:
 #      enabled: true
 #      path: /h2
   datasource:
-    url: jdbc:sqlite:finance.db
-    driverClassName: org.sqlite.JDBC
+    url: jdbc:postgresql://localhost:5432/finance
+    driverClassName: org.postgresql.Driver
+    username: finance-user
+    password: change_me
   jpa:
-    database-platform: com.bishop.FinanceTracker.config.SQLiteDialect
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: none
+      ddl-auto: update
     show-sql: true
 #  jpa:
 #    database-platform: org.hibernate.dialect.H2Dialect

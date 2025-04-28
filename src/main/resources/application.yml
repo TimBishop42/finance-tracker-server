@@ -6,7 +6,7 @@ spring:
     username: OverideMe
     password: OverideMe
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    database-platform: com.bishop.FinanceTracker.config.PostgreSQLDialect
     properties:
       hibernate:
         default_schema: finance
