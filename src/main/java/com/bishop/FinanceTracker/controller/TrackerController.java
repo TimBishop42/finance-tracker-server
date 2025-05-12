@@ -55,9 +55,12 @@ public class TrackerController {
     }
 
     @GetMapping("/get-summary-months")
-    public Mono<List<DisplayMonth>> getSummaryMonths() {
-        log.info("Received request to get summary months");
-        return Mono.just(aggregationService.aggregateDisplayMonths());
+    public Mono<List<DisplayMonth>> getSummaryMonths(@RequestParam(required = false) Integer months) {
+        if (months == null) {
+            months = 3;
+        }
+        log.info("Received request to get summary months for {} months of data", months);
+        return Mono.just(aggregationService.aggregateDisplayMonths(months));
     }
 
     @PostMapping("/add-category")

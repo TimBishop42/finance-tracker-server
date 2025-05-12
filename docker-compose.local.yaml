@@ -1,0 +1,23 @@
+version: '3.8'
+name: finance-tracker-local
+
+services:
+  postgres:
+    image: tbished/finance-postgres:latest
+    environment:
+      POSTGRES_DB: finance
+      POSTGRES_USER: finance-user
+      POSTGRES_PASSWORD: change_me
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./src/main/resources/postgres/seed-data.sql:/docker-entrypoint-initdb.d/02-seed-data.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U finance-user -d finance"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data: 

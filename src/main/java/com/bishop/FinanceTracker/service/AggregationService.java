@@ -26,11 +26,14 @@ public class AggregationService {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
 
-    public List<DisplayMonth> aggregateDisplayMonths() {
+    public List<DisplayMonth> aggregateDisplayMonths(Integer months) {
         return summarizedMonths()
                 .stream()
                 .map(DisplayMonth::to)
-                .sorted(Comparator.comparing(DisplayMonth::getMonth))
+                .sorted(Comparator
+                        .comparing(DisplayMonth::getYear).reversed()
+                        .thenComparing(DisplayMonth::getMonth, Comparator.reverseOrder()))
+                .limit(months)
                 .collect(Collectors.toList());
     }
 
@@ -55,8 +58,7 @@ public class AggregationService {
                             .build());
                     try {
                         monthsMap.get(key).getCategoryValues().get(t.getCategory()).incrementValue(t.getAmount().doubleValue());
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         log.error("Error encountered adding transaction to map: {}", t);
                     }
 
@@ -77,7 +79,8 @@ public class AggregationService {
 
         ZonedDateTime firstDayOfCurrentMonth = now
                 .with(TemporalAdjusters.firstDayOfMonth())
-                .truncatedTo(ChronoUnit.DAYS);;
+                .truncatedTo(ChronoUnit.DAYS);
+        ;
 
         Double priorMonthAmount = allTransactions.stream()
                 .filter(t -> t.getTransactionDateTime() >= firstDayOfLastMonth.toInstant().toEpochMilli()
