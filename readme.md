@@ -37,32 +37,6 @@ Alternatively, set up a MariaDB instance
 - update yaml to pull correct version of app image
 - run `docker-dompose up`
 
-
-# Pending Tasks
-- Add paging to transactions call
-- Add functionality to delete Transaction entries
-- Add new page to display some yearly aggregation
-- Refactor aggregation into separate batching service
-- Add ability to edit transactions in UI
-- Add poller to transactions cache on server side
-
-# Deploying to Raspberry Pi
-- Build java app
-- SCP file to Ubuntu server with: `scp FinanceTracker-0.0.1-SNAPSHOT.jar ubuntu@192.168.1.101:/home/ubuntu/springboot`
-- Delete existing jar file: `sudo rm /local/app/java/FinanceTracker-0.0.1-SNAPSHOT.jar`
-- Move new Java app to app dir: `sudo mv /home/ubuntu/springboot/FinanceTracker-0.0.1-SNAPSHOT.jar /local/app/java/`
-- SCP compiled JS files to server: `scp build.zip ubuntu@192.168.1.101:/home/ubuntu/react-app`
-- Stop apache for front end: `sudo systemctl stop apache2`
-- Delete old FE files: `sudo rm -r /var/www/html/build/`
-- Unzip js bundle files: `unzip build.zip`
-- Delete zip archive: `sudo rm /home/ubuntu/react-app/build.zip`
-- Copy new files to apache: `sudo mv /home/ubuntu/react-app/build/ /var/www/html/`
-- Restart server: `sudo systemctl restart finance-tracker-server`
-- Restart apache for front end: `sudo systemctl start apache2`
-
-# Run config on server (raspi)
-- Service config: `/etc/systemd/system/finance-tracker-server.service`gra
-
 # Docker build and deploy
 - ./gradlew build
 - docker build --platform linux/amd64 -t finance/server . 
@@ -77,6 +51,71 @@ To make changes to the postgres images base schema, modify the schema files in [
 Then rebuild the custom postgres image and push to repo:
 - docker build --platform linux/amd64 -t tbished/finance-postgres:latest -f Dockerfile.postgres .
 - docker push tbished/finance-postgres:latest
+
+## Endpoints
+### Batch Prediction Endpoint
+
+A new endpoint has been added to predict categories for a batch of transactions:
+
+`POST /api/transactions/predict-batch`
+
+#### Request Format
+```json
+[
+  {
+    "transactionDate": "2024-03-20T10:00:00Z",
+    "transactionAmount": 25.50,
+    "transactionBusiness": "STARBUCKS"
+  },
+  {
+    "transactionDate": "2024-03-20T11:00:00Z",
+    "transactionAmount": 45.00,
+    "transactionBusiness": "UBER"
+  }
+]
+```
+
+#### Response Format
+```json
+[
+  {
+    "transactionId": 1,
+    "date": "2024-03-20T10:00:00Z",
+    "amount": 25.50,
+    "businessName": "STARBUCKS",
+    "comment": "Coffee purchase",
+    "predictedCategory": "FOOD",
+    "confidenceScore": 0.95
+  },
+  {
+    "transactionId": 2,
+    "date": "2024-03-20T11:00:00Z",
+    "amount": 45.00,
+    "businessName": "UBER",
+    "comment": "Ride to work",
+    "predictedCategory": "TRANSPORT",
+    "confidenceScore": 0.85
+  }
+]
+```
+
+#### Sample Curl Command (Local Mode)
+```bash
+curl -X POST http://localhost:8080/api/transactions/predict-batch \
+  -H "Content-Type: application/json" \
+  -d '[
+    {
+      "transactionDate": "2024-03-20T10:00:00Z",
+      "transactionAmount": 25.50,
+      "transactionBusiness": "STARBUCKS"
+    },
+    {
+      "transactionDate": "2024-03-20T11:00:00Z",
+      "transactionAmount": 45.00,
+      "transactionBusiness": "UBER"
+    }
+  ]'
+```
 
 
   

@@ -26,6 +26,7 @@ services:
       spring.datasource.password: change_me
       spring.jpa.database-platform: org.hibernate.dialect.PostgreSQLDialect
       spring.datasource.driverClassName: org.postgresql.Driver
+      ml.service.url: http://ml-service:8000/api/v1/predict/batch
     ports:
       - "8800:40010"
     depends_on:
