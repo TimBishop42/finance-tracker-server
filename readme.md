@@ -7,12 +7,6 @@
 - Gradle
 - Docker (if wanting to build and push an image)
 
-### Raspberry Pi
-#### Database
-- SqLite DB - need to change DB config in application.yaml (dbUrl, driverClassName) - similar to application-local.yaml
-- Run some basic steps on sqlite DB to create new user
-- Run [sqlite schema script](./src/main/resources/sqlite/tables.sql)
-
 #### Java Service
 - Build app with gradle build
 - Copy jar file to raspi (or any linux server)
