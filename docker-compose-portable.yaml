@@ -40,7 +40,7 @@ services:
     ports:
       - "3050:80"
     environment:
-      - REACT_APP_BACKEND_URL=http://finance-tracker-be:40010/api/finance
+      - REACT_APP_BACKEND_URL=http://finance-tracker-be:40010/api
     depends_on:
       finance-tracker-be:
         condition: service_started
