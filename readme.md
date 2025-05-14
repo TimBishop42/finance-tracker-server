@@ -111,6 +111,78 @@ curl -X POST http://localhost:8080/api/transactions/predict-batch \
   ]'
 ```
 
+### Submit Transaction Batch
+`POST /api/finance/submit-transaction-batch`
+
+Submits a batch of transactions for processing. Can be run in dry-run mode to validate transactions without persisting them.
+
+#### Request Format
+```json
+{
+  "transactionJsonList": [
+    {
+      "transactionDate": 1710921600000,
+      "amount": 25.50,
+      "predictedCategory": "FOOD",
+      "userCorrectedCategory": "ENTERTAINMENT",
+      "comment": "Coffee with friends",
+      "essential": false
+    },
+    {
+      "transactionDate": 1710925200000,
+      "amount": 45.00,
+      "predictedCategory": "TRANSPORT",
+      "userCorrectedCategory": null,
+      "comment": "Ride to work",
+      "essential": true
+    }
+  ],
+  "dryRun": false
+}
+```
+
+#### Response Format
+```json
+[
+  {
+    "transactionId": 1234,
+    "status": "SUCCESS",
+    "message": "Transaction saved successfully"
+  },
+  {
+    "transactionId": 1235,
+    "status": "SUCCESS",
+    "message": "Transaction saved successfully"
+  }
+]
+```
+
+#### Sample Curl Command
+```bash
+curl -X POST http://localhost:8080/api/finance/submit-transaction-batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "transactionJsonList": [
+      {
+        "transactionDate": 1710921600000,
+        "amount": 25.50,
+        "predictedCategory": "FOOD",
+        "userCorrectedCategory": "ENTERTAINMENT",
+        "comment": "Coffee with friends",
+        "essential": false
+      }
+    ],
+    "dryRun": false
+  }'
+```
+
+Notes:
+- `transactionDate` should be provided as Unix timestamp in milliseconds
+- `predictedCategory` comes from the ML service prediction
+- `userCorrectedCategory` is optional, only present if user manually changed the category
+- `dryRun` flag can be used to validate transactions without saving them
+- Response includes a status and message for each transaction in the batch
+
 
   
     
