@@ -23,6 +23,9 @@ public class TransactionJson {
 
     private String comment;
 
+    @JsonProperty(value = "transactionBusiness")
+    private String businessName;
+
     @Deprecated
     private String companyName;
 

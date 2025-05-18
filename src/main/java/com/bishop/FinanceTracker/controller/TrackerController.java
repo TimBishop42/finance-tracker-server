@@ -1,6 +1,5 @@
 package com.bishop.FinanceTracker.controller;
 
-import com.bishop.FinanceTracker.client.TestWebClient;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
 import com.bishop.FinanceTracker.model.json.*;
@@ -25,7 +24,6 @@ public class TrackerController {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
     private final AggregationService aggregationService;
-    private final TestWebClient testWebClient;
 
     @PostMapping("/submit-transaction")
     public Mono<ResponseEntity> submitTransaction(@RequestBody final TransactionJson transactionJson) {
@@ -34,9 +32,9 @@ public class TrackerController {
     }
 
     @PostMapping("/submit-transaction-batch")
-    public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final TransactionsJson transactionsJson) {
+    public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final PredictedTransactionsJson transactionsJson) {
         log.info("Received request to save new transactions list: {}", transactionsJson);
-        return transactionService.addNewTransactions(transactionsJson);
+        return transactionService.handlePredictedTransactions(transactionsJson);
     }
 
     @GetMapping("/find-all-transactions")

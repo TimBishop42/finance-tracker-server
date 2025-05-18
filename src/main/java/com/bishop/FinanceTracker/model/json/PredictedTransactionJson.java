@@ -25,6 +25,8 @@ public class PredictedTransactionJson {
 
     private String comment;
 
+    private String transactionBusiness;
+
     @Deprecated
     private String companyName;
 

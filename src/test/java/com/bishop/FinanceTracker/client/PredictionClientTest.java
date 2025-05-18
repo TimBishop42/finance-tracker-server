@@ -11,6 +11,8 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.HashMap;
+import java.util.Map;
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -22,9 +24,12 @@ public class PredictionClientTest {
     @InjectMocks
     private PredictionClient predictionClient;
 
+    private String mlServiceUrl = "http://localhost:8000/api/v1/predict/batch";
+
     @BeforeEach
     public void setup() {
         MockitoAnnotations.openMocks(this);
+        predictionClient.setMlServiceUrl(mlServiceUrl);
     }
 
     @Test
@@ -58,7 +63,7 @@ public class PredictionClientTest {
         categorizedTransaction2.setConfidenceScore(0.85f);
         categorizedTransactionArray[1] = categorizedTransaction2;
 
-        when(restTemplate.postForObject(anyString(), anyList(), eq(CategorizedTransaction[].class)))
+        when(restTemplate.postForObject(eq(mlServiceUrl), any(Map.class), eq(CategorizedTransaction[].class)))
             .thenReturn(categorizedTransactionArray);
 
         // Act
@@ -74,6 +79,6 @@ public class PredictionClientTest {
         assertEquals("TRANSPORT", result.get(1).getPredictedCategory());
         assertEquals(0.85f, result.get(1).getConfidenceScore());
 
-        verify(restTemplate, times(1)).postForObject(anyString(), anyList(), eq(CategorizedTransaction[].class));
+        verify(restTemplate, times(1)).postForObject(eq(mlServiceUrl), any(Map.class), eq(CategorizedTransaction[].class));
     }
-} 
+}

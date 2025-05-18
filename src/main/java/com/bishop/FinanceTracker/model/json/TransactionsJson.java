@@ -14,6 +14,6 @@ import java.util.List;
 @AllArgsConstructor
 public class TransactionsJson {
 
-    List<PredictedTransactionJson> transactionJsonList;
+    List<TransactionJson> transactionJsonList;
     Boolean dryRun;
 }

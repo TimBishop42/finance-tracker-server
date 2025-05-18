@@ -1,10 +1,12 @@
 package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
+import com.bishop.FinanceTracker.model.TrainingResponse;
 import com.bishop.FinanceTracker.model.domain.Transaction;
 import com.bishop.FinanceTracker.model.json.TransactionDeleteRequest;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
+import com.bishop.FinanceTracker.model.json.PredictedTransactionsJson;
 import com.bishop.FinanceTracker.repository.TransactionRepository;
 import com.bishop.FinanceTracker.util.JsonValidator;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -37,6 +39,7 @@ public class TransactionService {
     private final JsonValidator jsonValidator;
     private final TransactionRepository transactionRepository;
     private Cache<Long, Transaction> transactionCache;
+    private TransactionPredictionService predictionService;
 
     private static final String CONSTRAINT_VIOLOATION_MESSAGE = "Error on field: %s. Reason: %s";
 
@@ -156,5 +159,29 @@ public class TransactionService {
         transactionRepository.deleteById(request.getTransactionId());
         transactionCache.invalidate(request.getTransactionId());
         log.info("Deleted transaction with id {} in {} milliseconds", request.getTransactionId(), System.currentTimeMillis() - startTime);
+    }
+
+    public Flux<SaveTransactionResponse> handlePredictedTransactions(PredictedTransactionsJson predictedTransactionsJson) {
+        TrainingResponse trainingResponse = predictionService.trainModel(predictedTransactionsJson);
+
+        if (!trainingResponse.isSuccess()) {
+            log.error("Training failed: {}", trainingResponse.getMessage());
+            return Flux.just(SaveTransactionResponse.serverError(
+                "Failed to train model: " + trainingResponse.getMessage(),
+                predictedTransactionsJson.toString()
+            ));
+        }
+        if (predictedTransactionsJson.isDryRun()) {
+            log.info("Training completed successfully. Dry run requested, skipping transaction save. Processed {} transactions",
+                trainingResponse.getTransactionCount());
+            return Flux.just(SaveTransactionResponse.success(
+                "Dry run completed successfully. No transactions saved.",
+                predictedTransactionsJson.toString(),
+                null
+            ));
+        }
+
+        TransactionsJson transactionsJson = predictedTransactionsJson.toTransactionsJson();
+        return addNewTransactions(transactionsJson);
     }
 }

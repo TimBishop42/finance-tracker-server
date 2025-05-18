@@ -1,4 +1,4 @@
-package com.bishop.FinanceTracker.config;
+package com.bishop.FinanceTracker.util;
 
 import javax.persistence.AttributeConverter;
 import javax.persistence.Converter;
@@ -15,4 +15,4 @@ public class BooleanToIntegerConverter implements AttributeConverter<Boolean, In
     public Boolean convertToEntityAttribute(Integer dbData) {
         return dbData != null && dbData == 1;
     }
-} 
+}

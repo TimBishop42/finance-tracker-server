@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS transactions(
   transaction_date_time BIGINT NOT NULL,
   comment VARCHAR(50),
   essential INTEGER NOT NULL,
+  business_name VARCHAR(200),
   create_time BIGINT NOT NULL
 );
 
