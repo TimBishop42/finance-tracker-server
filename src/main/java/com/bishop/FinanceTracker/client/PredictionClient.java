@@ -3,17 +3,20 @@ package com.bishop.FinanceTracker.client;
 import com.bishop.FinanceTracker.model.TransactionRaw;
 import com.bishop.FinanceTracker.model.CategorizedTransaction;
 import com.bishop.FinanceTracker.model.json.PredictedTransactionsJson;
-import com.bishop.FinanceTracker.config.AppConfig;
+import com.bishop.FinanceTracker.model.dto.PredictRequestDto;
+import com.bishop.FinanceTracker.model.dto.PredictResponse;
+import com.bishop.FinanceTracker.model.dto.TrainRequestDto;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.stream.Collectors;
 import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Component
 public class PredictionClient {
 
@@ -25,59 +28,71 @@ public class PredictionClient {
     private String mlServiceUrl;
 
     public List<CategorizedTransaction> predictBatch(List<TransactionRaw> transactions) {
-        // Prepare request in ML service format
-        Map<String, Object> request = new HashMap<>();
-        request.put("transactions", transactions);
-        request.put("categories", null);
+        // Convert to DTO
+        PredictRequestDto request = new PredictRequestDto();
+        request.setTransactions(transactions.stream()
+            .map(transaction -> {
+                PredictRequestDto.TransactionDto dto = new PredictRequestDto.TransactionDto();
+                dto.setTransactionId(transaction.getId());
+                dto.setDate(transaction.getTransactionDate().toInstant().toString());
+                dto.setAmount(transaction.getTransactionAmount());
+                dto.setBusinessName(transaction.getTransactionBusiness());
+                return dto;
+            })
+            .collect(Collectors.toList()));
+        request.setCategories(null);
 
         // Call ML service for prediction with the entire batch
-        CategorizedTransaction[] categorizedTransactionArray = restTemplate.postForObject(
+        PredictResponse response = restTemplate.postForObject(
             mlServiceUrl,
             request,
-            CategorizedTransaction[].class
+            PredictResponse.class
         );
+
+        log.info("Temp Logging: prediction response: {}", response);
+        
         List<CategorizedTransaction> categorizedTransactions = new ArrayList<>();
-        if (categorizedTransactionArray != null) {
-            for (CategorizedTransaction categorizedTransaction : categorizedTransactionArray) {
+        if (response != null && response.getCategorizedTransactions() != null) {
+            for (CategorizedTransaction categorizedTransaction : response.getCategorizedTransactions()) {
                 categorizedTransactions.add(categorizedTransaction);
             }
         }
+        log.info("Predicted {} transactions", categorizedTransactions.size());
         return categorizedTransactions;
     }
 
     public ResponseEntity<Void> trainModel(PredictedTransactionsJson predictedTransactionsJson) {
-        // Extract data for training request
-        List<Map<String, Object>> transactions = new ArrayList<>();
-        List<String> categories = new ArrayList<>();
-        Map<String, String> userCorrections = new HashMap<>();
+        // Convert to DTO
+        TrainRequestDto request = new TrainRequestDto();
+        request.setTransactions(predictedTransactionsJson.getTransactionJsonList().stream()
+            .map(transaction -> {
+                TrainRequestDto.TransactionDto dto = new TrainRequestDto.TransactionDto();
+                dto.setDate(transaction.getTransactionDate().toString());
+                dto.setAmount(Float.parseFloat(transaction.getAmount()));
+                dto.setBusinessName(transaction.getTransactionBusiness());
+                dto.setComment(transaction.getComment());
+                return dto;
+            })
+            .collect(Collectors.toList()));
 
-        predictedTransactionsJson.getTransactionJsonList().forEach(transaction -> {
-            // Add transaction data
-            Map<String, Object> transactionData = new HashMap<>();
-            transactionData.put("date", transaction.getTransactionDate());
-            transactionData.put("amount", transaction.getAmount());
-            transactionData.put("business_name", transaction.getTransactionBusiness());
-            transactionData.put("comment", transaction.getComment());
-            transactions.add(transactionData);
+        request.setCategories(predictedTransactionsJson.getTransactionJsonList().stream()
+            .map(transaction -> transaction.getPredictedCategory())
+            .collect(Collectors.toList()));
 
-            // Add category
-            categories.add(transaction.getPredictedCategory());
+        request.setConfidenceScores(predictedTransactionsJson.getTransactionJsonList().stream()
+            .map(transaction -> 1.0f) // Default confidence score
+            .collect(Collectors.toList()));
 
-            // If user corrected the category, add to corrections map
-            if (transaction.getUserCorrectedCategory() != null) {
-                userCorrections.put(String.valueOf(transactions.size() - 1),
-                                  transaction.getUserCorrectedCategory());
-            }
-        });
-
-        // Prepare training request
-        Map<String, Object> trainingRequest = new HashMap<>();
-        trainingRequest.put("transactions", transactions);
-        trainingRequest.put("categories", categories);
-        trainingRequest.put("user_corrections", userCorrections);
+        // Build user corrections map
+        request.setUserCorrections(predictedTransactionsJson.getTransactionJsonList().stream()
+            .filter(transaction -> transaction.getUserCorrectedCategory() != null)
+            .collect(Collectors.toMap(
+                transaction -> predictedTransactionsJson.getTransactionJsonList().indexOf(transaction),
+                transaction -> transaction.getUserCorrectedCategory()
+            )));
 
         // Call ML service training endpoint
         String trainingUrl = mlServiceUrl.replace("/predict/batch", "/train");
-        return restTemplate.postForEntity(trainingUrl, trainingRequest, Void.class);
+        return restTemplate.postForEntity(trainingUrl, request, Void.class);
     }
 }

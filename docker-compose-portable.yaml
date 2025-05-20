@@ -1,6 +1,3 @@
-version: '3.8'
-name: finance-tracker
-
 services:
   postgres:
     image: tbished/finance-postgres:latest
@@ -19,14 +16,14 @@ services:
       - finance_network
 
   finance-tracker-be:
-    image: tbished/finance-server:v12-postgres
+    image: tbished/finance-server:latest
     environment:
       spring.datasource.url: jdbc:postgresql://postgres:5432/finance
       spring.datasource.username: finance-user
       spring.datasource.password: change_me
       spring.jpa.database-platform: org.hibernate.dialect.PostgreSQLDialect
       spring.datasource.driverClassName: org.postgresql.Driver
-      ml.service.url: http://ml-service:8000/api/v1/predict/batch
+      ml.service.url: http://finance-tracker-ml:8000/api/v1/predict/batch
     ports:
       - "8800:40010"
     depends_on:
@@ -50,12 +47,12 @@ services:
   finance-tracker-ml:
     image: tbished/finance-tracker-ml:latest
     ports:
-      - "8000:8000"
+      - "8101:8000"
     volumes:
       - ml_models:/app/models
     environment:
       - MODEL_DIR=/app/models
-      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:8080"]
+      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:8080","http://localhost:8800","http://finance-tracker-be:40010"]
       - DB_HOST=postgres
       - DB_PORT=5432
       - DB_NAME=finance
@@ -65,7 +62,7 @@ services:
       postgres:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "python", "-c", "import http.client; conn = http.client.HTTPConnection('localhost:8000'); conn.request('GET', '/health'); response = conn.getresponse(); exit(0 if response.status == 200 else 1)"]
       interval: 30s
       timeout: 10s
       retries: 3

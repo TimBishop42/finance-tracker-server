@@ -39,7 +39,7 @@ public class TransactionService {
     private final JsonValidator jsonValidator;
     private final TransactionRepository transactionRepository;
     private Cache<Long, Transaction> transactionCache;
-    private TransactionPredictionService predictionService;
+    private final TransactionPredictionService predictionService;
 
     private static final String CONSTRAINT_VIOLOATION_MESSAGE = "Error on field: %s. Reason: %s";
 
