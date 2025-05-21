@@ -91,9 +91,9 @@ public class TransactionService {
         return SaveTransactionResponse.success(String.format("Successfully saved transaction with id %s", newTransaction.getTransactionId()), newTransaction.toString(), null);
     }
 
-    public ResponseEntity addTransaction(TransactionJson transactionJson) {
+    public ResponseEntity<SaveTransactionResponse> addTransaction(TransactionJson transactionJson) {
         SaveTransactionResponse response = addNewTransaction(transactionJson);
-        return new ResponseEntity(response, response.getStatus());
+        return new ResponseEntity<>(response, response.getStatus());
     }
 
     public List<Transaction> getAll() {
