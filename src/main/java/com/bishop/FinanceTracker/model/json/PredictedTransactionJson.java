@@ -33,4 +33,6 @@ public class PredictedTransactionJson {
     @NotNull
     private boolean essential;
 
+    private float confidenceScore;
+
 }

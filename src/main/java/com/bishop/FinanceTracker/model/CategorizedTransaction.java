@@ -1,14 +1,19 @@
 package com.bishop.FinanceTracker.model;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.Date;
 
 public class CategorizedTransaction {
+    @JsonProperty("transaction_id")
     private int transactionId;
     private Date date;
     private float amount;
+    @JsonProperty("business_name")
     private String businessName;
     private String comment;
+    @JsonProperty("predicted_category")
     private String predictedCategory;
+    @JsonProperty("confidence_score")
     private float confidenceScore;
 
     // Getters and Setters

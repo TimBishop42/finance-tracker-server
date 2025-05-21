@@ -159,6 +159,7 @@ public class PredictionClientTest {
             .predictedCategory("FOOD")
             .userCorrectedCategory("COFFEE")
             .essential(false)
+            .confidenceScore(0.95f)
             .build();
         transactions.add(transaction1);
 
@@ -168,7 +169,9 @@ public class PredictionClientTest {
             .amount("45.00")
             .transactionBusiness("UBER")
             .predictedCategory("TRANSPORT")
+            .userCorrectedCategory(null)
             .essential(false)
+            .confidenceScore(0.85f)
             .build();
         transactions.add(transaction2);
 
@@ -209,12 +212,16 @@ public class PredictionClientTest {
         assertEquals(45.00f, secondTransaction.getAmount());
         assertEquals("UBER", secondTransaction.getBusinessName());
 
-        // Verify categories
-        assertEquals("FOOD", capturedRequest.getCategories().get(0));
+        // Verify categories (should use userCorrectedCategory if available, otherwise predictedCategory)
+        assertEquals("COFFEE", capturedRequest.getCategories().get(0));
         assertEquals("TRANSPORT", capturedRequest.getCategories().get(1));
 
-        // Verify user corrections
-        assertEquals("COFFEE", capturedRequest.getUserCorrections().get(0));
+        // Verify confidence scores
+        assertEquals(0.95f, capturedRequest.getConfidenceScores().get(0));
+        assertEquals(0.85f, capturedRequest.getConfidenceScores().get(1));
+
+        // Verify user corrections (only for transactions with userCorrectedCategory)
+        assertEquals("COFFEE", capturedRequest.getUserCorrections().get("0"));
 
         verify(restTemplate, times(1)).postForEntity(eq(trainingUrl), any(TrainRequestDto.class), eq(Void.class));
     }
