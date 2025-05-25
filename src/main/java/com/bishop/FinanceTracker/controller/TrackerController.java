@@ -6,14 +6,18 @@ import com.bishop.FinanceTracker.model.json.*;
 import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
+import com.bishop.FinanceTracker.service.UserSettingsService;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import org.springframework.http.HttpStatus;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 @Data
 @Slf4j
@@ -24,6 +28,7 @@ public class TrackerController {
     private final TransactionService transactionService;
     private final CategoryService categoryService;
     private final AggregationService aggregationService;
+    private final UserSettingsService userSettingsService;
 
     @PostMapping("/submit-transaction")
     public Mono<ResponseEntity> submitTransaction(@RequestBody final TransactionJson transactionJson) {
@@ -92,6 +97,61 @@ public class TrackerController {
             return Mono.just(ResponseEntity.ok("Transaction deleted successfully"));
         } catch (IllegalArgumentException e) {
             return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
+    }
+
+    @GetMapping("/monthly-spend-comparison")
+    public ResponseEntity<MonthlySpendComparisonResponse> getMonthlySpendComparison() {
+        log.info("Received request for monthly spend comparison");
+        try {
+            MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
+            log.info("Successfully retrieved monthly spend comparison");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error retrieving monthly spend comparison", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/get-cumulative-spend")
+    public ResponseEntity<CumulativeSpendResponse> getCumulativeSpend() {
+        log.info("Received request for cumulative spend data");
+        try {
+            CumulativeSpendResponse response = aggregationService.getCumulativeSpend();
+            log.info("Successfully retrieved cumulative spend data");
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error retrieving cumulative spend data", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/get-max-spend-value")
+    public ResponseEntity<BigDecimal> getMaxSpendValue() {
+        log.info("Received request for max spend value");
+        try {
+            BigDecimal value = userSettingsService.getMaxSpendValue();
+            log.info("Successfully retrieved max spend value: {}", value);
+            return ResponseEntity.ok(value);
+        } catch (Exception e) {
+            log.error("Error retrieving max spend value", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/set-max-spend-value")
+    public ResponseEntity<Void> setMaxSpendValue(@RequestBody BigDecimal maxSpendValue) {
+        log.info("Received request to set max spend value: {}", maxSpendValue);
+        try {
+            userSettingsService.setMaxSpendValue(maxSpendValue);
+            log.info("Successfully set max spend value");
+            return ResponseEntity.ok().build();
+        } catch (IllegalArgumentException e) {
+            log.error("Invalid max spend value: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        } catch (Exception e) {
+            log.error("Error setting max spend value", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }
 

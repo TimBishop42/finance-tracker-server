@@ -2,6 +2,8 @@ package com.bishop.FinanceTracker.service;
 
 import com.bishop.FinanceTracker.model.domain.*;
 import com.bishop.FinanceTracker.model.json.HomeData;
+import com.bishop.FinanceTracker.model.json.MonthlySpendComparisonResponse;
+import com.bishop.FinanceTracker.model.json.CumulativeSpendResponse;
 import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,13 +12,16 @@ import org.springframework.stereotype.Service;
 import java.time.Month;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.time.temporal.ChronoField;
 import java.time.temporal.ChronoUnit;
 import java.time.temporal.TemporalAdjusters;
-import java.time.temporal.TemporalUnit;
 import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneOffset;
 
 @Slf4j
 @Service
@@ -105,5 +110,94 @@ public class AggregationService {
                 System.currentTimeMillis() - startTime, homeResult);
 
         return homeResult;
+    }
+
+    public MonthlySpendComparisonResponse getMonthlySpendComparison() {
+        log.info("Calculating monthly spend comparison");
+
+        LocalDate now = LocalDate.now();
+        LocalDate startOfCurrentMonth = now.withDayOfMonth(1);
+        LocalDate startOfPriorMonth = startOfCurrentMonth.minusMonths(1);
+
+        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
+
+        // Get current month's spend
+        BigDecimal currentMonthSpend = allTransactions.stream()
+            .filter(t -> t.getTransactionDateTime() >= startOfCurrentMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+                && t.getTransactionDateTime() <= now.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
+            .map(Transaction::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Get prior month's spend up to same day
+        LocalDate endOfPriorMonth = startOfPriorMonth.plusDays(now.getDayOfMonth() - 1);
+        LocalDate adjustedEndOfPriorMonth = endOfPriorMonth.isAfter(startOfPriorMonth.plusMonths(1).minusDays(1)) 
+            ? startOfPriorMonth.plusMonths(1).minusDays(1) 
+            : endOfPriorMonth;
+
+        BigDecimal priorMonthSpend = allTransactions.stream()
+            .filter(t -> t.getTransactionDateTime() >= startOfPriorMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+                && t.getTransactionDateTime() <= adjustedEndOfPriorMonth.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
+            .map(Transaction::getAmount)
+            .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        // Calculate percentage change
+        BigDecimal percentageChange;
+        if (priorMonthSpend.compareTo(BigDecimal.ZERO) == 0) {
+            percentageChange = currentMonthSpend.compareTo(BigDecimal.ZERO) > 0 ?
+                new BigDecimal("100.0") : BigDecimal.ZERO;
+        } else {
+            percentageChange = currentMonthSpend.subtract(priorMonthSpend)
+                .divide(priorMonthSpend, 4, RoundingMode.HALF_UP)
+                .multiply(new BigDecimal("100"));
+        }
+
+        log.info("Monthly spend comparison calculated - Current: {}, Prior: {}, Change: {}%",
+            currentMonthSpend, priorMonthSpend, percentageChange);
+
+        return new MonthlySpendComparisonResponse(
+            currentMonthSpend.setScale(2, RoundingMode.HALF_UP).toString(),
+            priorMonthSpend.setScale(2, RoundingMode.HALF_UP).toString(),
+            percentageChange.setScale(1, RoundingMode.HALF_UP).toString()
+        );
+    }
+
+    public CumulativeSpendResponse getCumulativeSpend() {
+        log.info("Calculating cumulative spend for current month");
+
+        LocalDate now = LocalDate.now();
+        LocalDate startOfCurrentMonth = now.withDayOfMonth(1);
+        
+        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
+        
+        // Filter transactions for current month
+        List<Transaction> currentMonthTransactions = allTransactions.stream()
+            .filter(t -> t.getTransactionDateTime() >= startOfCurrentMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+                && t.getTransactionDateTime() <= now.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
+            .collect(Collectors.toList());
+
+        // Group transactions by day and calculate daily totals
+        Map<Integer, BigDecimal> dailyTotals = currentMonthTransactions.stream()
+            .collect(Collectors.groupingBy(
+                t -> LocalDate.ofInstant(
+                    java.time.Instant.ofEpochMilli(t.getTransactionDateTime()),
+                    ZoneOffset.UTC
+                ).getDayOfMonth(),
+                Collectors.mapping(
+                    Transaction::getAmount,
+                    Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
+                )
+            ));
+
+        // Calculate cumulative totals for each day
+        List<String> cumulativeValues = new ArrayList<>();
+        BigDecimal runningTotal = BigDecimal.ZERO;
+
+        for (int day = 1; day <= now.getDayOfMonth(); day++) {
+            runningTotal = runningTotal.add(dailyTotals.getOrDefault(day, BigDecimal.ZERO));
+            cumulativeValues.add(runningTotal.setScale(2, RoundingMode.HALF_UP).toString());
+        }
+
+        log.info("Calculated cumulative spend values: {}", cumulativeValues);
+        return new CumulativeSpendResponse(cumulativeValues);
     }
 }

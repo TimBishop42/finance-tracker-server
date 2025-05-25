@@ -23,6 +23,11 @@ CREATE TABLE IF NOT EXISTS category(
   PRIMARY KEY (category_name)
 );
 
+CREATE TABLE user_settings (
+    id BIGINT PRIMARY KEY,
+    max_spend_value DECIMAL(10,2)
+);
+
 -- Create migration tracking table
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version VARCHAR(50) PRIMARY KEY,
