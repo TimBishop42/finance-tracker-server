@@ -20,6 +20,7 @@ public class PredictedTransactionsJson {
                 .comment(predicted.getComment())
                 .businessName(predicted.getTransactionBusiness())
                 .essential(predicted.isEssential())
+                .duplicateReviewed(predicted.isDuplicateReviewed())
                 .build())
             .collect(Collectors.toList());
 

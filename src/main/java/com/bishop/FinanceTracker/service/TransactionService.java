@@ -13,6 +13,7 @@ import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -20,8 +21,6 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
-import java.time.LocalDateTime;
-import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -51,7 +50,7 @@ public class TransactionService {
         fetchAll().forEach(t -> transactionCache.put(t.getTransactionId(), t));
     }
 
-    public Flux<SaveTransactionResponse> addNewTransactions(TransactionsJson transactionsJson) {
+    public ResponseEntity<Flux<SaveTransactionResponse>> addNewTransactions(TransactionsJson transactionsJson) {
         long startTime = System.currentTimeMillis();
         if (nonNull(transactionsJson.getTransactionJsonList()) && transactionsJson.getTransactionJsonList().size() > 0) {
             Set<ConstraintViolation<TransactionJson>> violations = new HashSet<>();
@@ -59,13 +58,34 @@ public class TransactionService {
                 violations.addAll(jsonValidator.validateJson(tj));
             });
             if (violations.size() > 0) {
-                return Flux.fromIterable(violations.stream().map(v -> SaveTransactionResponse.badRequest("Request Failed", null, v.getMessage())).collect(Collectors.toList()));
+                log.info("Failed to save new batch transactions due to constraint violations: {}", violations);
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Flux.fromIterable(violations.stream().map(v -> SaveTransactionResponse.badRequest(
+                        "Request Failed", null, v.getMessage())).collect(Collectors.toList())));
             }
-            return Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
-                    .map(this::addNewTransaction));
+
+            // Check for duplicates in cache only for non-reviewed transactions
+            List<Transaction> transactions = transactionsJson.getTransactionJsonList().stream()
+                    .filter(tj -> !tj.isDuplicateReviewed())
+                    .map(Transaction::from)
+                    .collect(Collectors.toList());
+
+            if (!transactions.isEmpty()) {
+                Map<Transaction, List<Transaction>> duplicateMap = findPotentialDuplicates(transactions);
+                if (!duplicateMap.isEmpty()) {
+                    return ResponseEntity.ok(Flux.just(SaveTransactionResponse.withDuplicates(
+                            "Potential duplicates found. Please review before saving.",
+                            transactionsJson.toString(),
+                            duplicateMap
+                    )));
+                }
+            }
+
+            return ResponseEntity.ok(Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
+                    .map(this::addNewTransaction)));
         } else {
             log.info("No Transactions present in transactionsJson. No updates will be made");
-            return Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload", transactionsJson.toString(), "Cannot save empty transaction list"));
+            return ResponseEntity.ok(Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload",
+                    transactionsJson.toString(), "Cannot save empty transaction list")));
         }
     }
 
@@ -80,6 +100,22 @@ public class TransactionService {
             return SaveTransactionResponse.badRequest(constraintViolation.toString(), transactionJson.toString(), validationResult.toString());
         }
         Transaction newTransaction = Transaction.from(transactionJson);
+
+        // Skip duplicate check if already reviewed
+        if (!transactionJson.isDuplicateReviewed()) {
+            // Check for duplicates in cache
+            List<Transaction> potentialDuplicates = findPotentialDuplicates(newTransaction);
+            if (!potentialDuplicates.isEmpty()) {
+                Map<Transaction, List<Transaction>> duplicateMap = new HashMap<>();
+                duplicateMap.put(newTransaction, potentialDuplicates);
+                return SaveTransactionResponse.withDuplicates(
+                        "Potential duplicates found. Please review before saving.",
+                        transactionJson.toString(),
+                        duplicateMap
+                );
+            }
+        }
+
         try {
             transactionRepository.save(newTransaction);
         } catch (Exception e) {
@@ -88,7 +124,7 @@ public class TransactionService {
         }
         transactionCache.put(newTransaction.getTransactionId(), newTransaction);
         log.info("Saved new transaction: {} in {} milliseconds", newTransaction, System.currentTimeMillis() - startTime);
-        return SaveTransactionResponse.success(String.format("Successfully saved transaction with id %s", newTransaction.getTransactionId()), newTransaction.toString(), null);
+        return SaveTransactionResponse.success(String.format("Successfully saved transaction with id %s", newTransaction.getTransactionId()), newTransaction.toString(), "");
     }
 
     public ResponseEntity<SaveTransactionResponse> addTransaction(TransactionJson transactionJson) {
@@ -117,7 +153,7 @@ public class TransactionService {
 
     public List<Transaction> getAllWithOptionalFilters(String categoryNameFilter, Boolean recentMonthFilter) {
         long greaterThanDateTime;
-        if(nonNull(recentMonthFilter) && recentMonthFilter) {
+        if (nonNull(recentMonthFilter) && recentMonthFilter) {
             greaterThanDateTime = getRecentMonthStartEpochMilli();
         }//1000 to match against millis, Z for UTC
         else {
@@ -128,7 +164,7 @@ public class TransactionService {
                 .values().stream()
                 .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
                 .filter(t -> isNull(categoryNameFilter) || t.getCategory().equalsIgnoreCase(categoryNameFilter))
-                .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
+                .sorted(Comparator.comparing(Transaction::getTransactionDateTime).reversed()).collect(Collectors.toList());
         log.info("Successfully retrieved {} transactions in {} milliseconds", transactions.size(), System.currentTimeMillis() - startTime);
         return transactions;
     }
@@ -161,27 +197,61 @@ public class TransactionService {
         log.info("Deleted transaction with id {} in {} milliseconds", request.getTransactionId(), System.currentTimeMillis() - startTime);
     }
 
-    public Flux<SaveTransactionResponse> handlePredictedTransactions(PredictedTransactionsJson predictedTransactionsJson) {
+    public ResponseEntity<Flux<SaveTransactionResponse>> handlePredictedTransactions(PredictedTransactionsJson predictedTransactionsJson) {
         TrainingResponse trainingResponse = predictionService.trainModel(predictedTransactionsJson);
 
         if (!trainingResponse.isSuccess()) {
             log.error("Training failed: {}", trainingResponse.getMessage());
-            return Flux.just(SaveTransactionResponse.serverError(
-                "Failed to train model: " + trainingResponse.getMessage(),
-                predictedTransactionsJson.toString()
-            ));
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Flux.just(SaveTransactionResponse.serverError(
+                    "Failed to train model: " + trainingResponse.getMessage(),
+                    predictedTransactionsJson.toString()
+            )));
         }
         if (predictedTransactionsJson.isDryRun()) {
             log.info("Training completed successfully. Dry run requested, skipping transaction save. Processed {} transactions",
-                trainingResponse.getTransactionCount());
-            return Flux.just(SaveTransactionResponse.success(
-                "Dry run completed successfully. No transactions saved.",
-                predictedTransactionsJson.toString(),
-                null
-            ));
+                    trainingResponse.getTransactionCount());
+            return ResponseEntity.ok(Flux.just(SaveTransactionResponse.success(
+                    "Dry run completed successfully. No transactions saved.",
+                    predictedTransactionsJson.toString(),
+                    "Dry run - no transactions saved"
+            )));
         }
 
         TransactionsJson transactionsJson = predictedTransactionsJson.toTransactionsJson();
         return addNewTransactions(transactionsJson);
+    }
+
+    //Called for single transaction save check
+    private List<Transaction> findPotentialDuplicates(Transaction transaction) {
+        return transactionCache.asMap().values().stream()
+                .filter(t -> t.getTransactionDate().equals(transaction.getTransactionDate()) &&
+                        t.getAmount().compareTo(transaction.getAmount()) == 0 &&
+                        (t.getBusinessName() == null && (transaction.getBusinessName() == null || transaction.getBusinessName().isEmpty()) ||
+                                t.getBusinessName() != null && transaction.getBusinessName() != null &&
+                                        t.getBusinessName().equalsIgnoreCase(transaction.getBusinessName())) &&
+                        t.getCategory().equalsIgnoreCase(transaction.getCategory()))
+                .collect(Collectors.toList());
+    }
+
+    // Called for batch save
+    private Map<Transaction, List<Transaction>> findPotentialDuplicates(List<Transaction> transactions) {
+        Map<Transaction, List<Transaction>> duplicatesMap = new HashMap<>();
+
+        transactions.forEach(newTransaction -> {
+            List<Transaction> duplicates = transactionCache.asMap().values().stream()
+                    .filter(t -> t.getTransactionDate().equals(newTransaction.getTransactionDate()) &&
+                            t.getAmount().compareTo(newTransaction.getAmount()) == 0 &&
+                            (t.getBusinessName() == null && (newTransaction.getBusinessName() == null || newTransaction.getBusinessName().isEmpty()) ||
+                                    t.getBusinessName() != null && newTransaction.getBusinessName() != null &&
+                                            t.getBusinessName().equalsIgnoreCase(newTransaction.getBusinessName())) &&
+                            t.getCategory().equalsIgnoreCase(newTransaction.getCategory()))
+                    .collect(Collectors.toList());
+
+            if (!duplicates.isEmpty()) {
+                duplicatesMap.put(newTransaction, duplicates);
+            }
+        });
+
+        return duplicatesMap;
     }
 }

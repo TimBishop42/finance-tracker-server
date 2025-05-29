@@ -35,4 +35,6 @@ public class PredictedTransactionJson {
 
     private float confidenceScore;
 
+    private boolean duplicateReviewed;
+
 }

@@ -37,7 +37,7 @@ public class TrackerController {
     }
 
     @PostMapping("/submit-transaction-batch")
-    public Flux<SaveTransactionResponse> submitTransactions(@RequestBody final PredictedTransactionsJson transactionsJson) {
+    public ResponseEntity<Flux<SaveTransactionResponse>> submitTransactions(@RequestBody final PredictedTransactionsJson transactionsJson) {
         log.info("Received request to save new transactions list: {}", transactionsJson);
         return transactionService.handlePredictedTransactions(transactionsJson);
     }

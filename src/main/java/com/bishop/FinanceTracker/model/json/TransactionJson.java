@@ -32,4 +32,5 @@ public class TransactionJson {
     @NotNull
     private boolean essential;
 
+    private boolean duplicateReviewed;
 }
