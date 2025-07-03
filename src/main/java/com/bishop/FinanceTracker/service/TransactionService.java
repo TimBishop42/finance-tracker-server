@@ -80,8 +80,12 @@ public class TransactionService {
                 }
             }
 
-            return ResponseEntity.ok(Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
+            ResponseEntity<Flux<SaveTransactionResponse>> saveTransactionsResponse = ResponseEntity
+                    .ok(Flux.fromStream(transactionsJson.getTransactionJsonList().stream()
                     .map(this::addNewTransaction)));
+            log.info("Saved {} new transactions in {} milliseconds", transactionsJson.getTransactionJsonList().size(), System.currentTimeMillis() - startTime);
+
+            return saveTransactionsResponse;
         } else {
             log.info("No Transactions present in transactionsJson. No updates will be made");
             return ResponseEntity.ok(Flux.just(SaveTransactionResponse.badRequest("No transaction present in payload",
@@ -198,25 +202,6 @@ public class TransactionService {
     }
 
     public ResponseEntity<Flux<SaveTransactionResponse>> handlePredictedTransactions(PredictedTransactionsJson predictedTransactionsJson) {
-        TrainingResponse trainingResponse = predictionService.trainModel(predictedTransactionsJson);
-
-        if (!trainingResponse.isSuccess()) {
-            log.error("Training failed: {}", trainingResponse.getMessage());
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Flux.just(SaveTransactionResponse.serverError(
-                    "Failed to train model: " + trainingResponse.getMessage(),
-                    predictedTransactionsJson.toString()
-            )));
-        }
-        if (predictedTransactionsJson.isDryRun()) {
-            log.info("Training completed successfully. Dry run requested, skipping transaction save. Processed {} transactions",
-                    trainingResponse.getTransactionCount());
-            return ResponseEntity.ok(Flux.just(SaveTransactionResponse.success(
-                    "Dry run completed successfully. No transactions saved.",
-                    predictedTransactionsJson.toString(),
-                    "Dry run - no transactions saved"
-            )));
-        }
-
         TransactionsJson transactionsJson = predictedTransactionsJson.toTransactionsJson();
         return addNewTransactions(transactionsJson);
     }
@@ -253,5 +238,32 @@ public class TransactionService {
         });
 
         return duplicatesMap;
+    }
+
+    public TrainingResponse triggerFullModelTraining() {
+        log.info("Starting full model training process");
+
+        // Get all transactions from cache
+        List<Transaction> allTransactions = getAll();
+        log.info("Retrieved {} transactions from cache", allTransactions.size());
+
+        // Filter out transactions with null or empty business names
+        List<Transaction> validTransactions = allTransactions.stream()
+            .filter(t -> nonNull(t.getBusinessName()) && !t.getBusinessName().trim().isEmpty())
+            .collect(Collectors.toList());
+
+        log.info("Filtered to {} transactions with valid business names", validTransactions.size());
+
+        if (validTransactions.isEmpty()) {
+            log.warn("No valid transactions found for training (all have null/empty business names)");
+            return TrainingResponse.builder()
+                .success(false)
+                .message("No valid transactions found for training - all transactions have null or empty business names")
+                .transactionCount(0)
+                .build();
+        }
+
+        // Convert transactions to training format and call ML service
+        return predictionService.trainModelWithAllTransactions(validTransactions);
     }
 }

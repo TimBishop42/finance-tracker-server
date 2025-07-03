@@ -109,4 +109,16 @@ public class PredictionClient {
             Void.class
         );
     }
+
+    public ResponseEntity<Void> trainModelDirect(TrainRequestDto request) {
+        log.info("Sending direct training request to ML service with {} transactions", request.getTransactions().size());
+        
+        // Call ML service for training
+        String trainingUrl = mlServiceUrl.replace("/predict/batch", "/train");
+        return restTemplate.postForEntity(
+            trainingUrl,
+            request,
+            Void.class
+        );
+    }
 }

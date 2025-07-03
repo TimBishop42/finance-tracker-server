@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import org.springframework.http.HttpStatus;
+import com.bishop.FinanceTracker.model.TrainingResponse;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -152,6 +153,29 @@ public class TrackerController {
         } catch (Exception e) {
             log.error("Error setting max spend value", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping("/train-model")
+    public ResponseEntity<TrainingResponse> triggerModelTraining() {
+        log.info("Received request to trigger full ML model training");
+        try {
+            TrainingResponse response = transactionService.triggerFullModelTraining();
+            if (response.isSuccess()) {
+                log.info("Successfully completed full model training with {} transactions", response.getTransactionCount());
+                return ResponseEntity.ok(response);
+            } else {
+                log.error("Model training failed: {}", response.getMessage());
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+        } catch (Exception e) {
+            log.error("Error during model training", e);
+            TrainingResponse errorResponse = TrainingResponse.builder()
+                .success(false)
+                .message("Training failed with error: " + e.getMessage())
+                .transactionCount(0)
+                .build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(errorResponse);
         }
     }
 
