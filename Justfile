@@ -29,3 +29,19 @@ push-postgres:
 
 # Full pipeline for Postgres: Build -> Push
 publish-postgres: build-postgres push-postgres
+
+# Run local development environment
+run-local:
+    ./run-local.sh
+
+# Stop local Docker services
+stop-local:
+    docker-compose -f docker-compose.local.yaml down
+
+# View logs from local Docker services
+logs-local:
+    docker-compose -f docker-compose.local.yaml logs -f
+
+# Restart local Docker services
+restart-local:
+    docker-compose -f docker-compose.local.yaml restart

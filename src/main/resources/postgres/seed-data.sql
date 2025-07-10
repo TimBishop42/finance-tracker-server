@@ -20,11 +20,21 @@ ON CONFLICT (category_name) DO NOTHING;
 CREATE OR REPLACE FUNCTION generate_random_transactions(num_transactions integer) RETURNS void AS $$
 DECLARE
     categories text[] := ARRAY['Coffee', 'Alcohol', 'Eating Out', 'Chocolate', 'Pet Food', 'Miscellaneous', 'Fuel', 'Bills', 'Baby'];
+    coffee_businesses text[] := ARRAY['Starbucks', 'Costa Coffee', 'Caffè Nero', 'Pret A Manger', 'Tim Hortons', 'Dunkin'''];
+    alcohol_businesses text[] := ARRAY['Wetherspoons', 'The Red Lion', 'Tesco', 'Sainsbury''s', 'ASDA', 'Morrisons'];
+    eating_out_businesses text[] := ARRAY['McDonald''s', 'KFC', 'Pizza Hut', 'Subway', 'Nando''s', 'Wagamama', 'Five Guys'];
+    chocolate_businesses text[] := ARRAY['Tesco', 'Sainsbury''s', 'ASDA', 'Morrisons', 'WHSmith', 'Boots'];
+    pet_food_businesses text[] := ARRAY['Pets at Home', 'Petco', 'PetSmart', 'Tesco', 'ASDA', 'Morrisons'];
+    misc_businesses text[] := ARRAY['Amazon', 'Argos', 'John Lewis', 'Currys', 'B&Q', 'Homebase', 'Wilko'];
+    fuel_businesses text[] := ARRAY['Shell', 'BP', 'Esso', 'Texaco', 'Sainsbury''s Petrol', 'Tesco Petrol'];
+    bill_businesses text[] := ARRAY['British Gas', 'EDF Energy', 'E.ON', 'Thames Water', 'BT', 'Sky', 'Virgin Media'];
+    baby_businesses text[] := ARRAY['Mothercare', 'Boots', 'Tesco', 'ASDA', 'Sainsbury''s', 'Mamas & Papas'];
     category text;
     amount numeric;
     transaction_date timestamp;
     transaction_date_time bigint;
     comment text;
+    business_name text;
     essential integer;
     create_time bigint;
 BEGIN
@@ -52,6 +62,19 @@ BEGIN
             WHEN category = 'Baby' THEN 'Baby supplies'
         END;
         
+        -- Random business name based on category
+        business_name := CASE 
+            WHEN category = 'Coffee' THEN coffee_businesses[floor(random() * array_length(coffee_businesses, 1)) + 1]
+            WHEN category = 'Alcohol' THEN alcohol_businesses[floor(random() * array_length(alcohol_businesses, 1)) + 1]
+            WHEN category = 'Eating Out' THEN eating_out_businesses[floor(random() * array_length(eating_out_businesses, 1)) + 1]
+            WHEN category = 'Chocolate' THEN chocolate_businesses[floor(random() * array_length(chocolate_businesses, 1)) + 1]
+            WHEN category = 'Pet Food' THEN pet_food_businesses[floor(random() * array_length(pet_food_businesses, 1)) + 1]
+            WHEN category = 'Miscellaneous' THEN misc_businesses[floor(random() * array_length(misc_businesses, 1)) + 1]
+            WHEN category = 'Fuel' THEN fuel_businesses[floor(random() * array_length(fuel_businesses, 1)) + 1]
+            WHEN category = 'Bills' THEN bill_businesses[floor(random() * array_length(bill_businesses, 1)) + 1]
+            WHEN category = 'Baby' THEN baby_businesses[floor(random() * array_length(baby_businesses, 1)) + 1]
+        END;
+        
         -- Essential is true for Bills and Fuel, random for others
         essential := CASE 
             WHEN category IN ('Bills', 'Fuel') THEN 1
@@ -69,6 +92,7 @@ BEGIN
             transaction_date_time,
             comment,
             essential,
+            business_name,
             create_time
         ) VALUES (
             category,
@@ -77,6 +101,7 @@ BEGIN
             transaction_date_time,
             comment,
             essential,
+            business_name,
             create_time
         );
     END LOOP;

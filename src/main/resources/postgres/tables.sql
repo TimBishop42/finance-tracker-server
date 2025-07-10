@@ -8,6 +8,7 @@ create table if not exists transactions(
   transaction_date_time BIGINT not null,
   comment VARCHAR(50),
   essential INTEGER not null,
+  business_name VARCHAR(200),
   create_time BIGINT not null
 );
 

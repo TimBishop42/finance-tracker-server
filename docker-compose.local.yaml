@@ -19,5 +19,32 @@ services:
       timeout: 5s
       retries: 5
 
+  finance-tracker-ml:
+    image: tbished/finance-tracker-ml:latest
+    ports:
+      - "8000:8000"
+    volumes:
+      - ml_models:/app/models
+    environment:
+      - MODEL_DIR=/app/models
+      - BACKEND_CORS_ORIGINS=["http://localhost:3000","http://localhost:40010"]
+      # Database configuration
+      - DB_HOST=postgres
+      - DB_PORT=5432
+      - DB_NAME=finance
+      - DB_USER=finance-user
+      - DB_PASSWORD=change_me
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
-  postgres_data: 
+  postgres_data:
+  ml_models: 

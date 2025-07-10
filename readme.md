@@ -2,7 +2,34 @@
 
 
 ## Env Setup
-### Local
+### Local Development (Quick Start)
+
+To run the entire application locally for development:
+
+```bash
+# From the finance-tracker-server directory
+just run-local
+```
+
+This single command will:
+- Start Postgres database (Docker, port 5432)
+- Start ML service (Docker, port 8000)  
+- Start Java server (local, port 40010)
+- Start React UI (local, port 3000)
+
+Access the application at: http://localhost:3000
+
+Other useful commands:
+- `just stop-local` - Stop Docker services
+- `just logs-local` - View Docker service logs
+- `just restart-local` - Restart Docker services
+
+**Prerequisites:**
+- Docker installed and running
+- Node.js and npm installed
+- Java 11+ installed
+
+### Local (Manual Setup)
 #### Dependencies
 - Gradle
 - Docker (if wanting to build and push an image)
@@ -182,6 +209,34 @@ Notes:
 - `userCorrectedCategory` is optional, only present if user manually changed the category
 - `dryRun` flag can be used to validate transactions without saving them
 - Response includes a status and message for each transaction in the batch
+
+### Train Model
+`POST /api/finance/train-model`
+
+Triggers a full ML model training using all available transaction data.
+
+#### Request Format
+No request body required.
+
+#### Response Format
+```json
+{
+  "success": true,
+  "message": "Model training completed successfully",
+  "transactionCount": 1250
+}
+```
+
+#### Sample Curl Command
+```bash
+curl -X POST http://localhost:8080/api/finance/train-model \
+  -H "Content-Type: application/json"
+```
+
+Notes:
+- Endpoint triggers a full retraining of the ML model
+- Returns success status, message, and count of transactions used for training
+- May take several minutes to complete depending on dataset size
 
 
   
