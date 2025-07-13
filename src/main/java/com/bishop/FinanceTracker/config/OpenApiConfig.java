@@ -28,11 +28,11 @@ public class OpenApiConfig {
                                 .url("https://opensource.org/licenses/MIT")))
                 .servers(List.of(
                         new Server()
-                                .url("http://localhost:8080")
+                                .url("http://localhost:40010")
                                 .description("Development server"),
                         new Server()
-                                .url("https://api.financetracker.com")
+                                .url("http://192.168.0.25:40010")
                                 .description("Production server")
                 ));
     }
-} 
+}

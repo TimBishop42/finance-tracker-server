@@ -73,6 +73,16 @@ Then rebuild the custom postgres image and push to repo:
 - docker build --platform linux/amd64 -t tbished/finance-postgres:latest -f Dockerfile.postgres .
 - docker push tbished/finance-postgres:latest
 
+## API Documentation
+
+Interactive API documentation is available via Swagger UI:
+- **Swagger UI**: http://localhost:40010/swagger-ui.html  
+- **OpenAPI JSON**: http://localhost:40010/v3/api-docs
+
+The Swagger UI provides an interactive interface to explore and test all API endpoints.
+
+For deployed servers, replace `localhost:40010` with your server's address and port.
+
 ## Endpoints
 ### Batch Prediction Endpoint
 
@@ -122,7 +132,7 @@ A new endpoint has been added to predict categories for a batch of transactions:
 
 #### Sample Curl Command (Local Mode)
 ```bash
-curl -X POST http://localhost:8080/api/transactions/predict-batch \
+curl -X POST http://localhost:40010/api/transactions/predict-batch \
   -H "Content-Type: application/json" \
   -d '[
     {
@@ -186,7 +196,7 @@ Submits a batch of transactions for processing. Can be run in dry-run mode to va
 
 #### Sample Curl Command
 ```bash
-curl -X POST http://localhost:8080/api/finance/submit-transaction-batch \
+curl -X POST http://localhost:40010/api/finance/submit-transaction-batch \
   -H "Content-Type: application/json" \
   -d '{
     "transactionJsonList": [
@@ -229,7 +239,7 @@ No request body required.
 
 #### Sample Curl Command
 ```bash
-curl -X POST http://localhost:8080/api/finance/train-model \
+curl -X POST http://localhost:40010/api/finance/train-model \
   -H "Content-Type: application/json"
 ```
 

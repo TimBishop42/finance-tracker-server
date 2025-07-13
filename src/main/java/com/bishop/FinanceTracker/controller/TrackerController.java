@@ -115,12 +115,23 @@ public class TrackerController {
     }
 
     @GetMapping("/get-cumulative-spend")
-    public ResponseEntity<CumulativeSpendResponse> getCumulativeSpend() {
-        log.info("Received request for cumulative spend data");
+    public ResponseEntity<CumulativeSpendResponse> getCumulativeSpend(
+            @RequestParam(value = "month", required = false) Integer month,
+            @RequestParam(value = "year", required = false) Integer year) {
+        
+        if (month != null && year != null) {
+            log.info("Received request for cumulative spend data for month {} year {}", month, year);
+        } else {
+            log.info("Received request for cumulative spend data for current month");
+        }
+        
         try {
-            CumulativeSpendResponse response = aggregationService.getCumulativeSpend();
+            CumulativeSpendResponse response = aggregationService.getCumulativeSpend(month, year);
             log.info("Successfully retrieved cumulative spend data");
             return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            log.warn("Invalid request parameters: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.error("Error retrieving cumulative spend data", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();

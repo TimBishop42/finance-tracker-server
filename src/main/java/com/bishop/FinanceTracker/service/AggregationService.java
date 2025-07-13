@@ -162,21 +162,59 @@ public class AggregationService {
     }
 
     public CumulativeSpendResponse getCumulativeSpend() {
-        log.info("Calculating cumulative spend for current month");
+        return getCumulativeSpend(null, null);
+    }
 
+    public CumulativeSpendResponse getCumulativeSpend(Integer month, Integer year) {
+        // Validate input parameters
+        if (month != null && year != null) {
+            // Validate month parameter
+            if (month < 1 || month > 12) {
+                throw new IllegalArgumentException("Month must be between 1 and 12, got: " + month);
+            }
+            
+            // Validate year parameter
+            if (year < 1900 || year > 2100) {
+                throw new IllegalArgumentException("Year must be between 1900 and 2100, got: " + year);
+            }
+        } else if (month != null || year != null) {
+            // If only one parameter is provided, throw exception
+            throw new IllegalArgumentException("Both month and year parameters must be provided together or not at all");
+        }
+        
         LocalDate now = LocalDate.now();
-        LocalDate startOfCurrentMonth = now.withDayOfMonth(1);
+        LocalDate targetDate;
+        
+        // If month and year are provided, use them; otherwise use current month
+        if (month != null && year != null) {
+            targetDate = LocalDate.of(year, month, 1);
+            log.info("Calculating cumulative spend for month {} year {}", month, year);
+        } else {
+            targetDate = now.withDayOfMonth(1);
+            log.info("Calculating cumulative spend for current month");
+        }
+
+        LocalDate startOfTargetMonth = targetDate.withDayOfMonth(1);
+        LocalDate endOfTargetMonth = targetDate.withDayOfMonth(targetDate.lengthOfMonth());
+        
+        // For current month, only go up to current day; for past months, go to end of month
+        LocalDate effectiveEndDate;
+        if (targetDate.getMonth() == now.getMonth() && targetDate.getYear() == now.getYear()) {
+            effectiveEndDate = now;
+        } else {
+            effectiveEndDate = endOfTargetMonth;
+        }
         
         List<Transaction> allTransactions = transactionService.getAllInRecentYear();
         
-        // Filter transactions for current month
-        List<Transaction> currentMonthTransactions = allTransactions.stream()
-            .filter(t -> t.getTransactionDateTime() >= startOfCurrentMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
-                && t.getTransactionDateTime() <= now.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
+        // Filter transactions for target month
+        List<Transaction> monthTransactions = allTransactions.stream()
+            .filter(t -> t.getTransactionDateTime() >= startOfTargetMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
+                && t.getTransactionDateTime() <= effectiveEndDate.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
             .collect(Collectors.toList());
 
         // Group transactions by day and calculate daily totals
-        Map<Integer, BigDecimal> dailyTotals = currentMonthTransactions.stream()
+        Map<Integer, BigDecimal> dailyTotals = monthTransactions.stream()
             .collect(Collectors.groupingBy(
                 t -> LocalDate.ofInstant(
                     java.time.Instant.ofEpochMilli(t.getTransactionDateTime()),
@@ -192,12 +230,16 @@ public class AggregationService {
         List<String> cumulativeValues = new ArrayList<>();
         BigDecimal runningTotal = BigDecimal.ZERO;
 
-        for (int day = 1; day <= now.getDayOfMonth(); day++) {
+        // For current month, only show up to current day; for past months, show all days
+        int daysToShow = effectiveEndDate.getDayOfMonth();
+        
+        for (int day = 1; day <= daysToShow; day++) {
             runningTotal = runningTotal.add(dailyTotals.getOrDefault(day, BigDecimal.ZERO));
             cumulativeValues.add(runningTotal.setScale(2, RoundingMode.HALF_UP).toString());
         }
 
-        log.info("Calculated cumulative spend values: {}", cumulativeValues);
+        log.info("Calculated cumulative spend values for {}/{}: {}", month != null ? month : now.getMonthValue(), 
+                year != null ? year : now.getYear(), cumulativeValues);
         return new CumulativeSpendResponse(cumulativeValues);
     }
 }

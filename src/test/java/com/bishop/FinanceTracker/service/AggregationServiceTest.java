@@ -17,6 +17,7 @@ import java.util.Collections;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
@@ -212,5 +213,122 @@ public class AggregationServiceTest {
         for (int i = 5; i < actualValues.size(); i++) {
             assertEquals("600.00", actualValues.get(i), "Remaining days should maintain the last total");
         }
+    }
+
+    @Test
+    void testGetCumulativeSpendWithValidMonthAndYear() {
+        // Create test transactions for December 2023
+        LocalDate targetDate = LocalDate.of(2023, 12, 1);
+        List<Transaction> transactions = Arrays.asList(
+            createTransaction(targetDate.plusDays(0), new BigDecimal("100.00")),
+            createTransaction(targetDate.plusDays(1), new BigDecimal("200.00")),
+            createTransaction(targetDate.plusDays(2), new BigDecimal("75.50"))
+        );
+        
+        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        
+        // Execute
+        CumulativeSpendResponse response = aggregationService.getCumulativeSpend(12, 2023);
+        
+        // Verify
+        List<String> actualValues = response.getCumulativeValues();
+        assertEquals(31, actualValues.size(), "December should have 31 days");
+        
+        // Check first 3 days have correct values
+        assertEquals("100.00", actualValues.get(0), "Day 1 should be first transaction");
+        assertEquals("300.00", actualValues.get(1), "Day 2 should include previous day's total");
+        assertEquals("375.50", actualValues.get(2), "Day 3 should include previous day's total");
+        
+        // Check remaining days maintain the last total
+        for (int i = 3; i < actualValues.size(); i++) {
+            assertEquals("375.50", actualValues.get(i), "Remaining days should maintain the last total");
+        }
+    }
+
+    @Test
+    void testGetCumulativeSpendWithInvalidMonth() {
+        // Test invalid month values
+        IllegalArgumentException exception1 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(0, 2024);
+        });
+        assertEquals("Month must be between 1 and 12, got: 0", exception1.getMessage());
+
+        IllegalArgumentException exception2 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(13, 2024);
+        });
+        assertEquals("Month must be between 1 and 12, got: 13", exception2.getMessage());
+    }
+
+    @Test
+    void testGetCumulativeSpendWithInvalidYear() {
+        // Test invalid year values
+        IllegalArgumentException exception1 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(12, 1899);
+        });
+        assertEquals("Year must be between 1900 and 2100, got: 1899", exception1.getMessage());
+
+        IllegalArgumentException exception2 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(12, 2101);
+        });
+        assertEquals("Year must be between 1900 and 2100, got: 2101", exception2.getMessage());
+    }
+
+    @Test
+    void testGetCumulativeSpendWithOnlyOneParameter() {
+        // Test providing only month parameter
+        IllegalArgumentException exception1 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(12, null);
+        });
+        assertEquals("Both month and year parameters must be provided together or not at all", exception1.getMessage());
+
+        // Test providing only year parameter
+        IllegalArgumentException exception2 = assertThrows(IllegalArgumentException.class, () -> {
+            aggregationService.getCumulativeSpend(null, 2024);
+        });
+        assertEquals("Both month and year parameters must be provided together or not at all", exception2.getMessage());
+    }
+
+    @Test
+    void testGetCumulativeSpendWithCurrentMonth() {
+        // Test that current month behavior is the same whether called with or without parameters
+        LocalDate now = LocalDate.now();
+        LocalDate currentMonthStart = now.withDayOfMonth(1);
+        
+        List<Transaction> transactions = Arrays.asList(
+            createTransaction(currentMonthStart.plusDays(0), new BigDecimal("100.00")),
+            createTransaction(currentMonthStart.plusDays(1), new BigDecimal("200.00"))
+        );
+        
+        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        
+        // Execute both versions
+        CumulativeSpendResponse responseNoParams = aggregationService.getCumulativeSpend();
+        CumulativeSpendResponse responseWithParams = aggregationService.getCumulativeSpend(now.getMonthValue(), now.getYear());
+        
+        // Verify both responses are identical
+        assertEquals(responseNoParams.getCumulativeValues(), responseWithParams.getCumulativeValues());
+    }
+
+    @Test
+    void testGetCumulativeSpendWithPastMonthFullData() {
+        // Test that past months show full month data, not just up to current day
+        LocalDate pastMonth = LocalDate.of(2023, 11, 1);
+        List<Transaction> transactions = Arrays.asList(
+            createTransaction(pastMonth.plusDays(0), new BigDecimal("100.00")),
+            createTransaction(pastMonth.plusDays(29), new BigDecimal("200.00")) // Last day of November
+        );
+        
+        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        
+        // Execute
+        CumulativeSpendResponse response = aggregationService.getCumulativeSpend(11, 2023);
+        
+        // Verify
+        List<String> actualValues = response.getCumulativeValues();
+        assertEquals(30, actualValues.size(), "November should have 30 days");
+        
+        // Check first and last days
+        assertEquals("100.00", actualValues.get(0), "Day 1 should be first transaction");
+        assertEquals("300.00", actualValues.get(29), "Day 30 should include both transactions");
     }
 }
