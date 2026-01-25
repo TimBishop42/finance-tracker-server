@@ -21,6 +21,7 @@ import reactor.core.publisher.Flux;
 
 import javax.annotation.PostConstruct;
 import javax.validation.ConstraintViolation;
+import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -72,8 +73,20 @@ public class TransactionService {
             if (!transactions.isEmpty()) {
                 Map<Transaction, List<Transaction>> duplicateMap = findPotentialDuplicates(transactions);
                 if (!duplicateMap.isEmpty()) {
+                    Set<DuplicateKey> duplicateKeys = duplicateMap.keySet().stream()
+                            .map(this::toDuplicateKey)
+                            .collect(Collectors.toSet());
+                    List<TransactionJson> toSaveNow = transactionsJson.getTransactionJsonList().stream()
+                            .filter(tj -> !duplicateKeys.contains(toDuplicateKey(tj)))
+                            .toList();
+
+                    if (!toSaveNow.isEmpty()) {
+                        toSaveNow.forEach(this::addNewTransaction);
+                        log.info("Saved {} non-duplicate transactions while deferring {} duplicates for review", toSaveNow.size(), duplicateMap.size());
+                    }
+
                     return ResponseEntity.ok(Flux.just(SaveTransactionResponse.withDuplicates(
-                            "Potential duplicates found. Please review before saving.",
+                            String.format("Saved %d non-duplicate transactions. Potential duplicates found. Please review before saving.", toSaveNow.size()),
                             transactionsJson.toString(),
                             duplicateMap
                     )));
@@ -238,6 +251,69 @@ public class TransactionService {
         });
 
         return duplicatesMap;
+    }
+
+    private DuplicateKey toDuplicateKey(Transaction transaction) {
+        return new DuplicateKey(
+                transaction.getTransactionDateTime(),
+                transaction.getAmount(),
+                normalizeBusinessName(transaction.getBusinessName()),
+                normalizeCategory(transaction.getCategory())
+        );
+    }
+
+    private DuplicateKey toDuplicateKey(TransactionJson transactionJson) {
+        return new DuplicateKey(
+                transactionJson.getTransactionDate(),
+                BigDecimal.valueOf(Double.parseDouble(transactionJson.getAmount())),
+                normalizeBusinessName(transactionJson.getBusinessName()),
+                normalizeCategory(transactionJson.getCategory())
+        );
+    }
+
+    private String normalizeBusinessName(String businessName) {
+        if (businessName == null || businessName.trim().isEmpty()) {
+            return null;
+        }
+        return businessName.trim().toLowerCase();
+    }
+
+    private String normalizeCategory(String category) {
+        return category == null ? null : category.trim().toLowerCase();
+    }
+
+    private static final class DuplicateKey {
+        private final Long transactionDateTime;
+        private final BigDecimal amount;
+        private final String businessName;
+        private final String category;
+
+        private DuplicateKey(Long transactionDateTime, BigDecimal amount, String businessName, String category) {
+            this.transactionDateTime = transactionDateTime;
+            this.amount = amount;
+            this.businessName = businessName;
+            this.category = category;
+        }
+
+        @Override
+        public boolean equals(Object o) {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DuplicateKey that = (DuplicateKey) o;
+            return Objects.equals(transactionDateTime, that.transactionDateTime) &&
+                    Objects.equals(amount, that.amount) &&
+                    Objects.equals(businessName, that.businessName) &&
+                    Objects.equals(category, that.category);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(transactionDateTime, amount, businessName, category);
+        }
     }
 
     public TrainingResponse triggerFullModelTraining() {
