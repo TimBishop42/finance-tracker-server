@@ -19,8 +19,8 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
-import javax.annotation.PostConstruct;
-import javax.validation.ConstraintViolation;
+import jakarta.annotation.PostConstruct;
+import jakarta.validation.ConstraintViolation;
 import java.math.BigDecimal;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -162,7 +162,7 @@ public class TransactionService {
         long startTime = System.currentTimeMillis();
         List<Transaction> transactions = transactionCache.asMap()
                 .values().stream()
-//                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
                 .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
         return transactions;

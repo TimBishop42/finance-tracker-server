@@ -61,10 +61,16 @@ public class AggregationService {
                             .month(Month.valueOf(k.getMonth()))
                             .year(k.getYear())
                             .build());
-                    try {
-                        monthsMap.get(key).getCategoryValues().get(t.getCategory()).incrementValue(t.getAmount().doubleValue());
-                    } catch (Exception e) {
-                        log.error("Error encountered adding transaction to map: {}", t);
+                    CategoryValue categoryValue = monthsMap.get(key).getCategoryValues().get(t.getCategory());
+                    if (categoryValue == null) {
+                        log.warn("Skipping transaction id={} — category '{}' not found in category map (orphaned category)",
+                                t.getTransactionId(), t.getCategory());
+                    } else {
+                        try {
+                            categoryValue.incrementValue(t.getAmount().doubleValue());
+                        } catch (Exception e) {
+                            log.error("Error encountered adding transaction to map: {}", t);
+                        }
                     }
 
                 });

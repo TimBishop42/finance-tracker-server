@@ -37,6 +37,8 @@ out/
 .vscode/
 
 *.log
+logs/
+LOGS_IS_UNDEFINED/
 
 local.db
 

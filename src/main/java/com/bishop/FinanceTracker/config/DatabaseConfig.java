@@ -25,7 +25,7 @@ public class DatabaseConfig {
     @Bean
     public HibernatePropertiesCustomizer hibernatePropertiesCustomizer() {
         return hibernateProperties -> {
-            String schema = env.acceptsProfiles("test") ? "public" : "finance";
+            String schema = env.matchesProfiles("test") ? "public" : "finance";
             log.info("Using schema: {} for profiles: {}", schema, String.join(", ", env.getActiveProfiles()));
             hibernateProperties.put("hibernate.default_schema", schema);
         };

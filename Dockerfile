@@ -1,8 +1,11 @@
-# Use a base image with Java pre-installed
-FROM openjdk:17-jdk-slim
+# Use a maintained Java runtime image
+FROM eclipse-temurin:17-jre-jammy
 
 # Set the working directory in the container
 WORKDIR /app
+
+# Define the log directory (referenced by logback-spring.xml via ${LOGS})
+ENV LOGS=/var/log/finance-tracker
 
 # Copy the Spring Boot application JAR file into the container
 COPY build/libs/*.jar ./app.jar
