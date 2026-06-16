@@ -7,6 +7,7 @@ import com.bishop.FinanceTracker.model.domain.CustomMerchant;
 import com.bishop.FinanceTracker.model.domain.ExcludedMerchant;
 import com.bishop.FinanceTracker.repository.CustomMerchantRepository;
 import com.bishop.FinanceTracker.repository.ExcludedMerchantRepository;
+import com.bishop.FinanceTracker.repository.SalaryHistoryRepository;
 import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
@@ -36,6 +37,7 @@ public class TrackerController {
     private final UserSettingsService userSettingsService;
     private final ExcludedMerchantRepository excludedMerchantRepository;
     private final CustomMerchantRepository customMerchantRepository;
+    private final SalaryHistoryRepository salaryHistoryRepository;
 
     @PostMapping("/submit-transaction")
     public Mono<ResponseEntity> submitTransaction(@RequestBody final TransactionJson transactionJson) {
@@ -212,6 +214,41 @@ public class TrackerController {
     @DeleteMapping("/custom-merchants/{merchantPattern}")
     public ResponseEntity<Void> deleteCustomMerchant(@PathVariable String merchantPattern) {
         customMerchantRepository.deleteById(merchantPattern.trim());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/salary-history")
+    public ResponseEntity<List<SalaryEntry>> getSalaryHistory() {
+        return ResponseEntity.ok(salaryHistoryRepository.findAllByOrderByEffectiveDateAsc());
+    }
+
+    @PostMapping("/salary-history")
+    public ResponseEntity<SalaryEntry> addSalaryEntry(@RequestBody Map<String, Object> body) {
+        Object date = body.get("date");
+        Object amount = body.get("amount");
+        if (date == null || String.valueOf(date).isBlank() || amount == null) {
+            return ResponseEntity.badRequest().build();
+        }
+        try {
+            BigDecimal value = new BigDecimal(String.valueOf(amount));
+            Object note = body.get("note");
+            SalaryEntry entry = SalaryEntry.builder()
+                    .effectiveDate(String.valueOf(date).trim())
+                    .amount(value)
+                    .note(note == null ? "" : String.valueOf(note))
+                    .build();
+            return ResponseEntity.ok(salaryHistoryRepository.save(entry));
+        } catch (NumberFormatException e) {
+            return ResponseEntity.badRequest().build();
+        }
+    }
+
+    @DeleteMapping("/salary-history/{id}")
+    public ResponseEntity<Void> deleteSalaryEntry(@PathVariable Long id) {
+        if (!salaryHistoryRepository.existsById(id)) {
+            return ResponseEntity.notFound().build();
+        }
+        salaryHistoryRepository.deleteById(id);
         return ResponseEntity.ok().build();
     }
 

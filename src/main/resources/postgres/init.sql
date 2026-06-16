@@ -33,6 +33,13 @@ CREATE TABLE IF NOT EXISTS excluded_merchants (
     merchant_key VARCHAR(200) PRIMARY KEY
 );
 
+CREATE TABLE IF NOT EXISTS salary_history (
+    id BIGSERIAL PRIMARY KEY,
+    effective_date VARCHAR(20) NOT NULL,
+    amount NUMERIC(12,2) NOT NULL,
+    note VARCHAR(200)
+);
+
 -- Create migration tracking table
 CREATE TABLE IF NOT EXISTS schema_migrations (
     version VARCHAR(50) PRIMARY KEY,
