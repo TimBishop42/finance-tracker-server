@@ -33,4 +33,6 @@ public class TransactionJson {
     private boolean essential;
 
     private boolean duplicateReviewed;
+
+    private String transactionType;
 }

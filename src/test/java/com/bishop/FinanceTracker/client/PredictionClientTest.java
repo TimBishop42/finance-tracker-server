@@ -123,12 +123,6 @@ public class PredictionClientTest {
     public void testPredictBatchWithEmptyList() {
         // Arrange
         List<TransactionRaw> transactions = new ArrayList<>();
-        PredictResponse response = new PredictResponse();
-        response.setCategorizedTransactions(new ArrayList<>());
-
-        ArgumentCaptor<PredictRequestDto> requestCaptor = ArgumentCaptor.forClass(PredictRequestDto.class);
-        when(restTemplate.postForObject(eq(mlServiceUrl), requestCaptor.capture(), eq(PredictResponse.class)))
-            .thenReturn(response);
 
         // Act
         List<CategorizedTransaction> result = predictionClient.predictBatch(transactions);
@@ -136,13 +130,7 @@ public class PredictionClientTest {
         // Assert
         assertNotNull(result);
         assertTrue(result.isEmpty());
-
-        // Verify request format
-        PredictRequestDto capturedRequest = requestCaptor.getValue();
-        assertNotNull(capturedRequest);
-        assertNotNull(capturedRequest.getTransactions());
-        assertTrue(capturedRequest.getTransactions().isEmpty());
-        assertNull(capturedRequest.getCategories());
+        verify(restTemplate, never()).postForObject(any(), any(), any());
     }
 
     @Test

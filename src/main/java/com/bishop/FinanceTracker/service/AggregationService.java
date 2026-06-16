@@ -4,6 +4,7 @@ import com.bishop.FinanceTracker.model.domain.*;
 import com.bishop.FinanceTracker.model.json.HomeData;
 import com.bishop.FinanceTracker.model.json.MonthlySpendComparisonResponse;
 import com.bishop.FinanceTracker.model.json.CumulativeSpendResponse;
+import com.bishop.FinanceTracker.model.json.CategoryYearOverYearResponse;
 import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,22 +31,25 @@ public class AggregationService {
 
     private final TransactionService transactionService;
     private final CategoryService categoryService;
+    private final UserSettingsService userSettingsService;
 
     public List<DisplayMonth> aggregateDisplayMonths(Integer months) {
-        return summarizedMonths()
+        return summarizedMonths(months)
                 .stream()
                 .map(DisplayMonth::to)
                 .sorted(Comparator
                         .comparing(DisplayMonth::getYear).reversed()
                         .thenComparing(DisplayMonth::getMonth, Comparator.reverseOrder()))
                 .limit(months)
+                .sorted(Comparator
+                        .comparing(DisplayMonth::getYear)
+                        .thenComparing(DisplayMonth::getMonth))
                 .collect(Collectors.toList());
     }
 
-    private static final Double MONTHLY_BUDGET_TARGET = 11000.0;
 
-    private Collection<SummarizingMonth> summarizedMonths() {
-        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
+    private Collection<SummarizingMonth> summarizedMonths(int months) {
+        List<Transaction> allTransactions = transactionService.getAllSinceNMonthsAgo(months);
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
 
@@ -106,10 +110,11 @@ public class AggregationService {
                 .sum();
         log.info("Sum for current month {}, current month dateTime {}", currentMonthAmount, firstDayOfCurrentMonth);
 
+        double budgetTarget = userSettingsService.getMaxSpendValue().doubleValue();
         HomeData homeResult = HomeData.builder()
-                .currentMonth(currentMonthAmount.intValue())
-                .priorMonth(priorMonthAmount.intValue())
-                .status(currentMonthAmount < MONTHLY_BUDGET_TARGET ? "WITHIN BUDGET" : "OVER BUDGET")
+                .currentMonth(currentMonthAmount)
+                .priorMonth(priorMonthAmount)
+                .status(currentMonthAmount < budgetTarget ? "WITHIN BUDGET" : "OVER BUDGET")
                 .build();
 
         log.info("Retrieved summarized value for home data in {} millis, data: {}",
@@ -165,6 +170,76 @@ public class AggregationService {
             priorMonthSpend.setScale(2, RoundingMode.HALF_UP).toString(),
             percentageChange.setScale(1, RoundingMode.HALF_UP).toString()
         );
+    }
+
+    public CategoryYearOverYearResponse getCategoryYearOverYear() {
+        LocalDate today = LocalDate.now();
+        int currentYear = today.getYear();
+        int lastYear = currentYear - 1;
+
+        // Same calendar day last year — used as the cut-off so both windows cover identical elapsed days
+        LocalDate sameDayLastYear = today.minusYears(1);
+
+        long thisYearStart = LocalDate.of(currentYear, 1, 1)
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+        long lastYearStart = LocalDate.of(lastYear, 1, 1)
+                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
+        long lastYearEnd = sameDayLastYear.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli();
+        long now = today.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli();
+
+        List<Transaction> allTransactions = transactionService.getAllSinceStartOfLastYear();
+
+        Map<String, Double> thisYearByCategory = allTransactions.stream()
+                .filter(t -> t.getTransactionDateTime() >= thisYearStart && t.getTransactionDateTime() <= now)
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategory() != null ? t.getCategory() : "Unknown",
+                        Collectors.summingDouble(t -> t.getAmount().doubleValue())));
+
+        Map<String, Double> lastYearByCategory = allTransactions.stream()
+                .filter(t -> t.getTransactionDateTime() >= lastYearStart && t.getTransactionDateTime() <= lastYearEnd)
+                .collect(Collectors.groupingBy(
+                        t -> t.getCategory() != null ? t.getCategory() : "Unknown",
+                        Collectors.summingDouble(t -> t.getAmount().doubleValue())));
+
+        Set<String> allCategories = new HashSet<>();
+        allCategories.addAll(thisYearByCategory.keySet());
+        allCategories.addAll(lastYearByCategory.keySet());
+
+        List<CategoryYearOverYearResponse.CategoryRow> rows = allCategories.stream()
+                .map(category -> {
+                    double ty = round2(thisYearByCategory.getOrDefault(category, 0.0));
+                    double ly = round2(lastYearByCategory.getOrDefault(category, 0.0));
+                    double delta = round2(ty - ly);
+                    double deltaPercent = ly == 0 ? (ty > 0 ? 100.0 : 0.0)
+                            : round2((delta / ly) * 100.0);
+                    return CategoryYearOverYearResponse.CategoryRow.builder()
+                            .category(category)
+                            .thisYear(ty)
+                            .lastYear(ly)
+                            .delta(delta)
+                            .deltaPercent(deltaPercent)
+                            .build();
+                })
+                .sorted(Comparator.comparingDouble(CategoryYearOverYearResponse.CategoryRow::getThisYear).reversed())
+                .collect(Collectors.toList());
+
+        double thisYearTotal = round2(rows.stream().mapToDouble(CategoryYearOverYearResponse.CategoryRow::getThisYear).sum());
+        double lastYearTotal = round2(rows.stream().mapToDouble(CategoryYearOverYearResponse.CategoryRow::getLastYear).sum());
+
+        String period = String.format("Jan 1 – %s %d", today.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH), today.getDayOfMonth());
+
+        log.info("Year-over-year comparison: thisYear={}, lastYear={}, categories={}", thisYearTotal, lastYearTotal, rows.size());
+
+        return CategoryYearOverYearResponse.builder()
+                .categories(rows)
+                .thisYearTotal(thisYearTotal)
+                .lastYearTotal(lastYearTotal)
+                .comparisonPeriod(period)
+                .build();
+    }
+
+    private static double round2(double value) {
+        return Math.round(value * 100.0) / 100.0;
     }
 
     public CumulativeSpendResponse getCumulativeSpend() {

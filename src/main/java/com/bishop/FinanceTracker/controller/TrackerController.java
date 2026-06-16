@@ -3,6 +3,10 @@ package com.bishop.FinanceTracker.controller;
 import com.bishop.FinanceTracker.model.SaveTransactionResponse;
 import com.bishop.FinanceTracker.model.domain.*;
 import com.bishop.FinanceTracker.model.json.*;
+import com.bishop.FinanceTracker.model.domain.CustomMerchant;
+import com.bishop.FinanceTracker.model.domain.ExcludedMerchant;
+import com.bishop.FinanceTracker.repository.CustomMerchantRepository;
+import com.bishop.FinanceTracker.repository.ExcludedMerchantRepository;
 import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
@@ -30,6 +34,8 @@ public class TrackerController {
     private final CategoryService categoryService;
     private final AggregationService aggregationService;
     private final UserSettingsService userSettingsService;
+    private final ExcludedMerchantRepository excludedMerchantRepository;
+    private final CustomMerchantRepository customMerchantRepository;
 
     @PostMapping("/submit-transaction")
     public Mono<ResponseEntity> submitTransaction(@RequestBody final TransactionJson transactionJson) {
@@ -163,6 +169,60 @@ public class TrackerController {
             return ResponseEntity.badRequest().build();
         } catch (Exception e) {
             log.error("Error setting max spend value", e);
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/excluded-merchants")
+    public ResponseEntity<List<String>> getExcludedMerchants() {
+        List<String> keys = excludedMerchantRepository.findAll()
+                .stream().map(ExcludedMerchant::getMerchantKey).collect(java.util.stream.Collectors.toList());
+        return ResponseEntity.ok(keys);
+    }
+
+    @PostMapping("/excluded-merchants")
+    public ResponseEntity<Void> excludeMerchant(@RequestBody Map<String, String> body) {
+        String key = body.get("merchantKey");
+        if (key == null || key.isBlank()) return ResponseEntity.badRequest().build();
+        excludedMerchantRepository.save(new ExcludedMerchant(key.trim().toUpperCase()));
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/excluded-merchants/{merchantKey}")
+    public ResponseEntity<Void> restoreMerchant(@PathVariable String merchantKey) {
+        excludedMerchantRepository.deleteById(merchantKey.trim().toUpperCase());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/custom-merchants")
+    public ResponseEntity<List<CustomMerchant>> getCustomMerchants() {
+        return ResponseEntity.ok(customMerchantRepository.findAll());
+    }
+
+    @PostMapping("/custom-merchants")
+    public ResponseEntity<Void> addCustomMerchant(@RequestBody Map<String, String> body) {
+        String pattern = body.get("merchantPattern");
+        String type    = body.get("merchantType");
+        if (pattern == null || pattern.isBlank()) return ResponseEntity.badRequest().build();
+        if (!"subscription".equals(type) && !"bill".equals(type)) return ResponseEntity.badRequest().build();
+        customMerchantRepository.save(new CustomMerchant(pattern.trim(), type));
+        return ResponseEntity.ok().build();
+    }
+
+    @DeleteMapping("/custom-merchants/{merchantPattern}")
+    public ResponseEntity<Void> deleteCustomMerchant(@PathVariable String merchantPattern) {
+        customMerchantRepository.deleteById(merchantPattern.trim());
+        return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/category-year-over-year")
+    public ResponseEntity<CategoryYearOverYearResponse> getCategoryYearOverYear() {
+        log.info("Received request for category year-over-year comparison");
+        try {
+            CategoryYearOverYearResponse response = aggregationService.getCategoryYearOverYear();
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            log.error("Error retrieving category year-over-year data", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
     }

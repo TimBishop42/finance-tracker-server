@@ -7,6 +7,6 @@ import lombok.Data;
 @Builder
 public class HomeData {
     private String status;
-    private Integer currentMonth;
-    private Integer priorMonth;
+    private Double currentMonth;
+    private Double priorMonth;
 }

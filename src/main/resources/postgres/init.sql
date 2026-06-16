@@ -14,7 +14,8 @@ CREATE TABLE IF NOT EXISTS transactions(
   comment VARCHAR(50),
   essential INTEGER NOT NULL,
   business_name VARCHAR(200),
-  create_time BIGINT NOT NULL
+  create_time BIGINT NOT NULL,
+  transaction_type VARCHAR(20) DEFAULT 'EXPENSE'
 );
 
 CREATE TABLE IF NOT EXISTS category(
@@ -26,6 +27,10 @@ CREATE TABLE IF NOT EXISTS category(
 CREATE TABLE user_settings (
     id BIGINT PRIMARY KEY,
     max_spend_value DECIMAL(10,2)
+);
+
+CREATE TABLE IF NOT EXISTS excluded_merchants (
+    merchant_key VARCHAR(200) PRIMARY KEY
 );
 
 -- Create migration tracking table

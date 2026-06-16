@@ -30,41 +30,44 @@ public class PredictionClient {
     @Setter
     private String mlServiceUrl;
 
+    private static final int PREDICT_BATCH_SIZE = 200;
+
     public List<CategorizedTransaction> predictBatch(List<TransactionRaw> transactions) {
-        // Convert to DTO
-        PredictRequestDto request = new PredictRequestDto();
-        request.setTransactions(transactions.stream()
-            .map(transaction -> {
-                PredictRequestDto.TransactionDto dto = new PredictRequestDto.TransactionDto();
-                dto.setTransactionId(transaction.getId());
-                dto.setDate(transaction.getTransactionDate().toInstant().toString());
-                dto.setAmount(transaction.getTransactionAmount());
-                dto.setBusinessName(transaction.getTransactionBusiness());
-                return dto;
-            })
-            .collect(Collectors.toList()));
-        request.setCategories(null);
+        List<CategorizedTransaction> allResults = new ArrayList<>();
 
-        log.info("Sending prediction request to ML service: {}", request);
+        for (int start = 0; start < transactions.size(); start += PREDICT_BATCH_SIZE) {
+            int end = Math.min(start + PREDICT_BATCH_SIZE, transactions.size());
+            List<TransactionRaw> chunk = transactions.subList(start, end);
 
-        // Call ML service for prediction with the entire batch
-        PredictResponse response = restTemplate.postForObject(
-            mlServiceUrl,
-            request,
-            PredictResponse.class
-        );
+            PredictRequestDto request = new PredictRequestDto();
+            request.setTransactions(chunk.stream()
+                .map(transaction -> {
+                    PredictRequestDto.TransactionDto dto = new PredictRequestDto.TransactionDto();
+                    dto.setTransactionId(transaction.getId());
+                    dto.setDate(transaction.getTransactionDate().toInstant().toString());
+                    dto.setAmount(transaction.getTransactionAmount());
+                    dto.setBusinessName(transaction.getTransactionBusiness());
+                    return dto;
+                })
+                .collect(Collectors.toList()));
+            request.setCategories(null);
 
-        log.info("Received prediction response from ML service: {}", response);
-        
-        List<CategorizedTransaction> categorizedTransactions = new ArrayList<>();
-        if (response != null && response.getCategorizedTransactions() != null) {
-            for (CategorizedTransaction categorizedTransaction : response.getCategorizedTransactions()) {
-                log.info("Processing categorized transaction: {}", categorizedTransaction);
-                categorizedTransactions.add(categorizedTransaction);
+            log.info("Sending prediction request chunk [{}-{}) of {} to ML service", start, end, transactions.size());
+
+            PredictResponse response = restTemplate.postForObject(
+                mlServiceUrl,
+                request,
+                PredictResponse.class
+            );
+
+            if (response != null && response.getCategorizedTransactions() != null) {
+                allResults.addAll(response.getCategorizedTransactions());
             }
         }
-        log.info("Predicted {} transactions", categorizedTransactions.size());
-        return categorizedTransactions;
+
+        log.info("Predicted {} transactions in {} chunk(s)", allResults.size(),
+            (transactions.size() + PREDICT_BATCH_SIZE - 1) / PREDICT_BATCH_SIZE);
+        return allResults;
     }
 
     public ResponseEntity<Void> trainModel(PredictedTransactionsJson predictedTransactionsJson) {
@@ -102,23 +105,20 @@ public class PredictionClient {
         }
         request.setUserCorrections(userCorrections);
 
-        // Call ML service for training
-        return restTemplate.postForEntity(
-            mlServiceUrl.replace("/predict/batch", "/train"),
-            request,
-            Void.class
-        );
+        return restTemplate.postForEntity(trainUrl(), request, Void.class);
     }
 
     public ResponseEntity<Void> trainModelDirect(TrainRequestDto request) {
         log.info("Sending direct training request to ML service with {} transactions", request.getTransactions().size());
-        
-        // Call ML service for training
-        String trainingUrl = mlServiceUrl.replace("/predict/batch", "/train");
-        return restTemplate.postForEntity(
-            trainingUrl,
-            request,
-            Void.class
-        );
+        return restTemplate.postForEntity(trainUrl(), request, Void.class);
+    }
+
+    private String trainUrl() {
+        int idx = mlServiceUrl.lastIndexOf("/predict/batch");
+        if (idx >= 0) {
+            return mlServiceUrl.substring(0, idx) + "/train";
+        }
+        int lastSlash = mlServiceUrl.lastIndexOf('/');
+        return (lastSlash > 0 ? mlServiceUrl.substring(0, lastSlash) : mlServiceUrl) + "/train";
     }
 }

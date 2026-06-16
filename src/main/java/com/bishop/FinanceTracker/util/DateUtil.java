@@ -86,4 +86,14 @@ public class DateUtil {
 
         return startOfDay.toInstant().toEpochMilli();
     }
+
+    public static long getFirstDayOfLastYearEpochMilli() {
+        LocalDate firstDayOfLastYear = LocalDate.now().minusYears(1).withDayOfYear(1);
+        return firstDayOfLastYear.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
+
+    public static long getNMonthsAgoStartEpochMilli(int months) {
+        LocalDate cutoff = LocalDate.now().minusMonths(months).withDayOfMonth(1);
+        return cutoff.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+    }
 }

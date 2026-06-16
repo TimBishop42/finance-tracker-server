@@ -15,7 +15,7 @@ public class DisplayMonth {
     private Month month;
     private Integer year;
 
-    private Integer totalMonthlySpend;
+    private Double totalMonthlySpend;
 
     private Collection<CategoryValue> categoryValues;
 
@@ -23,7 +23,7 @@ public class DisplayMonth {
         DisplayMonth month = DisplayMonth.builder()
                 .month(summarizingMonth.getMonth())
                 .year(summarizingMonth.getYear())
-                .totalMonthlySpend(0)
+                .totalMonthlySpend(0.0)
                 .categoryValues(summarizingMonth.getCategoryValues().values())
                 .build();
         month.calcMonthlySpend();
@@ -36,6 +36,6 @@ public class DisplayMonth {
     }
 
     private void incSpend(Double val) {
-        totalMonthlySpend += val.intValue();
+        totalMonthlySpend += val;
     }
 }

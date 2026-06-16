@@ -26,7 +26,9 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 import static com.bishop.FinanceTracker.util.DateUtil.getFirstDayOfYearEpochMilli;
+import static com.bishop.FinanceTracker.util.DateUtil.getFirstDayOfLastYearEpochMilli;
 import static com.bishop.FinanceTracker.util.DateUtil.getRecentMonthStartEpochMilli;
+import static com.bishop.FinanceTracker.util.DateUtil.getNMonthsAgoStartEpochMilli;
 import static java.util.Objects.isNull;
 import static java.util.Objects.nonNull;
 
@@ -156,6 +158,18 @@ public class TransactionService {
         return transactions;
     }
 
+    public List<Transaction> getAllSinceStartOfLastYear() {
+        long greaterThanDateTime = getFirstDayOfLastYearEpochMilli();
+        long startTime = System.currentTimeMillis();
+        List<Transaction> transactions = transactionCache.asMap()
+                .values().stream()
+                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+                .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
+        log.info("Successfully retrieved {} transactions since start of last year in {} milliseconds",
+                transactions.size(), System.currentTimeMillis() - startTime);
+        return transactions;
+    }
+
     public List<Transaction> getAllInRecentYear() {
         //Hardcoded to 1st Jan for now
         long greaterThanDateTime = getFirstDayOfYearEpochMilli();
@@ -165,6 +179,18 @@ public class TransactionService {
                 .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
                 .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
         log.info("Successfully retrieved transactions in {} milliseconds", System.currentTimeMillis() - startTime);
+        return transactions;
+    }
+
+    public List<Transaction> getAllSinceNMonthsAgo(int months) {
+        long greaterThanDateTime = getNMonthsAgoStartEpochMilli(months);
+        long startTime = System.currentTimeMillis();
+        List<Transaction> transactions = transactionCache.asMap()
+                .values().stream()
+                .filter(t -> t.getTransactionDateTime() > greaterThanDateTime)
+                .sorted(Comparator.comparing(Transaction::getTransactionDateTime)).collect(Collectors.toList());
+        log.info("Successfully retrieved {} transactions since {} months ago in {} milliseconds",
+                transactions.size(), months, System.currentTimeMillis() - startTime);
         return transactions;
     }
 

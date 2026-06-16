@@ -46,6 +46,9 @@ public class Transaction {
 
     private Long createTime;
 
+    @Column(name = "transaction_type")
+    private String transactionType = "EXPENSE";
+
     public static Transaction from(TransactionJson transactionJson) {
         return Transaction.builder()
                 .category(transactionJson.getCategory())
@@ -56,6 +59,7 @@ public class Transaction {
                 .businessName(transactionJson.getBusinessName())
                 .essential(transactionJson.isEssential())
                 .createTime(System.currentTimeMillis())
+                .transactionType(transactionJson.getTransactionType() != null ? transactionJson.getTransactionType() : "EXPENSE")
                 .build();
     }
 }
