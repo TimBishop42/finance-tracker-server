@@ -5,6 +5,7 @@ import com.bishop.FinanceTracker.model.domain.NetWorthSnapshot;
 import com.bishop.FinanceTracker.model.domain.Security;
 import com.bishop.FinanceTracker.model.domain.SecurityPrice;
 import com.bishop.FinanceTracker.model.domain.ShareTrade;
+import com.bishop.FinanceTracker.model.domain.StockSplit;
 import com.bishop.FinanceTracker.model.domain.WealthItem;
 import com.bishop.FinanceTracker.model.wealth.TotalWealthResponse;
 import com.bishop.FinanceTracker.repository.FxRateRepository;
@@ -12,8 +13,10 @@ import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
 import com.bishop.FinanceTracker.repository.SecurityPriceRepository;
 import com.bishop.FinanceTracker.repository.SecurityRepository;
 import com.bishop.FinanceTracker.repository.ShareTradeRepository;
+import com.bishop.FinanceTracker.repository.StockSplitRepository;
 import com.bishop.FinanceTracker.repository.WealthItemRepository;
 import com.bishop.FinanceTracker.service.FxService;
+import com.bishop.FinanceTracker.service.PriceRefreshService;
 import com.bishop.FinanceTracker.service.WealthService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,9 +45,11 @@ public class WealthController {
 
     private final WealthService wealthService;
     private final FxService fxService;
+    private final PriceRefreshService priceRefreshService;
     private final WealthItemRepository wealthItemRepository;
     private final SecurityRepository securityRepository;
     private final ShareTradeRepository shareTradeRepository;
+    private final StockSplitRepository stockSplitRepository;
     private final SecurityPriceRepository securityPriceRepository;
     private final FxRateRepository fxRateRepository;
     private final NetWorthSnapshotRepository snapshotRepository;
@@ -137,6 +142,23 @@ public class WealthController {
         return ResponseEntity.ok(securityRepository.save(sec));
     }
 
+    @PutMapping("/securities/{id}")
+    public ResponseEntity<Security> updateSecurity(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Optional<Security> opt = securityRepository.findById(id);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        Security sec = opt.get();
+        if (body.containsKey("name")) sec.setName(str(body, "name"));
+        if (body.containsKey("currency")) sec.setCurrency(ccyOr(body, "currency", sec.getCurrency()));
+        if (body.containsKey("exchange") && !isBlank(str(body, "exchange"))) {
+            sec.setExchange(str(body, "exchange").trim().toUpperCase());
+        }
+        if (body.containsKey("priceSymbol")) {
+            String ps = str(body, "priceSymbol");
+            sec.setPriceSymbol(isBlank(ps) ? null : ps.trim());
+        }
+        return ResponseEntity.ok(securityRepository.save(sec));
+    }
+
     // --- Trades ------------------------------------------------------------
 
     @GetMapping("/trades")
@@ -178,6 +200,39 @@ public class WealthController {
         return ResponseEntity.ok().build();
     }
 
+    // --- Stock splits ------------------------------------------------------
+
+    @GetMapping("/splits")
+    public ResponseEntity<List<StockSplit>> getSplits() {
+        return ResponseEntity.ok(stockSplitRepository.findAllByOrderByExDateAscIdAsc());
+    }
+
+    @PostMapping("/splits")
+    public ResponseEntity<StockSplit> addSplit(@RequestBody Map<String, Object> body) {
+        Long securityId = lng(body, "securityId");
+        BigDecimal ratio = dec(body, "ratio");
+        String exDate = str(body, "exDate");
+        if (securityId == null || ratio == null || ratio.signum() <= 0 || isBlank(exDate)) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (!securityRepository.existsById(securityId)) return ResponseEntity.badRequest().build();
+        StockSplit split = StockSplit.builder()
+                .securityId(securityId)
+                .exDate(exDate.trim())
+                .ratio(ratio)
+                .note(str(body, "note"))
+                .createTime(System.currentTimeMillis())
+                .build();
+        return ResponseEntity.ok(stockSplitRepository.save(split));
+    }
+
+    @DeleteMapping("/splits/{id}")
+    public ResponseEntity<Void> deleteSplit(@PathVariable Long id) {
+        if (!stockSplitRepository.existsById(id)) return ResponseEntity.notFound().build();
+        stockSplitRepository.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
+
     // --- Prices ------------------------------------------------------------
 
     @PostMapping("/prices")
@@ -195,6 +250,24 @@ public class WealthController {
         row.setPrice(price);
         row.setSource("MANUAL");
         return ResponseEntity.ok(securityPriceRepository.save(row));
+    }
+
+    @PostMapping("/prices/refresh")
+    public ResponseEntity<List<PriceRefreshService.RefreshResult>> refreshPrices() {
+        return ResponseEntity.ok(priceRefreshService.refreshNow());
+    }
+
+    @GetMapping("/prices/quote")
+    public ResponseEntity<Map<String, Object>> quote(@RequestParam Long securityId) {
+        Optional<Security> sec = securityRepository.findById(securityId);
+        if (sec.isEmpty()) return ResponseEntity.notFound().build();
+        Map<String, Object> body = new LinkedHashMap<>();
+        priceRefreshService.quote(sec.get()).ifPresent(q -> {
+            body.put("price", q.price());
+            body.put("currency", q.currency());
+            body.put("asOf", q.asOfDate());
+        });
+        return ResponseEntity.ok(body); // empty body => symbol could not be priced
     }
 
     // --- FX rates ----------------------------------------------------------

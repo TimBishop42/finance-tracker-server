@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS securities (
     exchange      VARCHAR(20),
     currency      VARCHAR(3) NOT NULL DEFAULT 'AUD',
     price_source  VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
+    price_symbol  VARCHAR(30),
     UNIQUE (ticker, exchange)
 );
 
@@ -90,6 +91,17 @@ CREATE TABLE IF NOT EXISTS security_prices (
     price         NUMERIC(15,4) NOT NULL,
     source        VARCHAR(20) NOT NULL DEFAULT 'MANUAL',
     UNIQUE (security_id, as_of_date)
+);
+
+-- Stock splits / consolidations (corporate actions applied during trade replay).
+-- ratio = new shares per old share (5 = 5-for-1 split; 0.2 = 1-for-5 consolidation).
+CREATE TABLE IF NOT EXISTS stock_splits (
+    id            BIGSERIAL PRIMARY KEY,
+    security_id   BIGINT NOT NULL REFERENCES securities(id),
+    ex_date       VARCHAR(20) NOT NULL,           -- yyyy-MM-dd
+    ratio         NUMERIC(18,6) NOT NULL,
+    note          VARCHAR(200),
+    create_time   BIGINT NOT NULL
 );
 
 -- FX rates (AUD<->USD for v1). 1 base_ccy = `rate` quote_ccy.

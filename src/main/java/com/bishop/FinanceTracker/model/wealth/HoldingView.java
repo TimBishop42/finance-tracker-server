@@ -23,6 +23,7 @@ public class HoldingView {
     private BigDecimal avgCost;          // native, per unit
     private BigDecimal lastPrice;        // native, per unit (null if no price set)
     private String lastPriceDate;        // yyyy-MM-dd (null if no price set)
+    private boolean priceIsEstimated;    // true when no price row → valued at average cost
 
     private BigDecimal marketValueNative;
     private BigDecimal unrealisedPlNative;

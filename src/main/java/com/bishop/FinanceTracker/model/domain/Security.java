@@ -39,4 +39,9 @@ public class Security {
     // MANUAL today; an API source name later (v2).
     @Column(name = "price_source", nullable = false, length = 20)
     private String priceSource;
+
+    // Optional override for the price-feed lookup symbol (e.g. "CBA.AX", "AAPL").
+    // When null it is derived from the ticker/exchange/currency.
+    @Column(name = "price_symbol", length = 30)
+    private String priceSymbol;
 }

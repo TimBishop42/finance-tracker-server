@@ -12,3 +12,14 @@ spring:
     properties:
       hibernate:
         default_schema: finance
+
+# Total Wealth — live price feed (Yahoo, free/key-less). See WealthController/PriceRefreshService.
+app:
+  yahoo:
+    base-url: https://query1.finance.yahoo.com
+  price-refresh:
+    enabled: true
+    # When to auto-refresh prices + USD/AUD rate. Spring cron (sec min hour dom mon dow).
+    # Default: 6pm daily. For twice-daily use e.g. "0 0 8,18 * * *".
+    cron: "0 0 18 * * *"
+    zone: Australia/Sydney
