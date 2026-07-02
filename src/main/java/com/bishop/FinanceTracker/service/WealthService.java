@@ -148,7 +148,9 @@ public class WealthService {
 
     /** Compute current totals in base AUD and upsert this month's snapshot (idempotent). */
     public NetWorthSnapshot runSnapshot() {
-        final String asOf = LocalDate.now().withDayOfMonth(1).toString(); // one row per month
+        // One row per calendar day (upsert): re-running on the same day overwrites that
+        // day's point, but distinct days accumulate so the over-time chart builds up.
+        final String asOf = LocalDate.now().toString();
         final boolean[] fxMissing = {false};
 
         Map<String, BigDecimal> classTotals = new LinkedHashMap<>();
