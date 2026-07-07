@@ -53,7 +53,8 @@ public class AggregationService {
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
 
-        allTransactions
+        allTransactions.stream()
+                .filter(AggregationService::isExpense)
                 .forEach(t -> {
                     MonthYearKey key = MonthYearKey.builder()
                             .month(DateUtil.getMonthFromStringDate(t.getTransactionDate()).name())
@@ -98,6 +99,7 @@ public class AggregationService {
         ;
 
         Double priorMonthAmount = allTransactions.stream()
+                .filter(AggregationService::isExpense)
                 .filter(t -> t.getTransactionDateTime() >= firstDayOfLastMonth.toInstant().toEpochMilli()
                         && t.getTransactionDateTime() < firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
@@ -105,6 +107,7 @@ public class AggregationService {
         log.info("Sum for prior month {}, prior month dateTime {}", priorMonthAmount, firstDayOfLastMonth);
 
         Double currentMonthAmount = allTransactions.stream()
+                .filter(AggregationService::isExpense)
                 .filter(t -> t.getTransactionDateTime() >= firstDayOfCurrentMonth.toInstant().toEpochMilli())
                 .mapToDouble(t -> t.getAmount().doubleValue())
                 .sum();
@@ -134,6 +137,7 @@ public class AggregationService {
 
         // Get current month's spend
         BigDecimal currentMonthSpend = allTransactions.stream()
+            .filter(AggregationService::isExpense)
             .filter(t -> t.getTransactionDateTime() >= startOfCurrentMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
                 && t.getTransactionDateTime() <= now.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
             .map(Transaction::getAmount)
@@ -146,6 +150,7 @@ public class AggregationService {
             : endOfPriorMonth;
 
         BigDecimal priorMonthSpend = allTransactions.stream()
+            .filter(AggregationService::isExpense)
             .filter(t -> t.getTransactionDateTime() >= startOfPriorMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
                 && t.getTransactionDateTime() <= adjustedEndOfPriorMonth.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
             .map(Transaction::getAmount)
@@ -190,12 +195,14 @@ public class AggregationService {
         List<Transaction> allTransactions = transactionService.getAllSinceStartOfLastYear();
 
         Map<String, Double> thisYearByCategory = allTransactions.stream()
+                .filter(AggregationService::isExpense)
                 .filter(t -> t.getTransactionDateTime() >= thisYearStart && t.getTransactionDateTime() <= now)
                 .collect(Collectors.groupingBy(
                         t -> t.getCategory() != null ? t.getCategory() : "Unknown",
                         Collectors.summingDouble(t -> t.getAmount().doubleValue())));
 
         Map<String, Double> lastYearByCategory = allTransactions.stream()
+                .filter(AggregationService::isExpense)
                 .filter(t -> t.getTransactionDateTime() >= lastYearStart && t.getTransactionDateTime() <= lastYearEnd)
                 .collect(Collectors.groupingBy(
                         t -> t.getCategory() != null ? t.getCategory() : "Unknown",
@@ -240,6 +247,17 @@ public class AggregationService {
 
     private static double round2(double value) {
         return Math.round(value * 100.0) / 100.0;
+    }
+
+    /**
+     * Only EXPENSE transactions count as spend. INCOME (salary, positive
+     * inflows) and NEUTRAL (internal transfers / credit-card payments) are
+     * excluded from every spend aggregation. Legacy rows with a null type
+     * predate the type field and are treated as expenses.
+     */
+    static boolean isExpense(Transaction t) {
+        String type = t.getTransactionType();
+        return type == null || "EXPENSE".equalsIgnoreCase(type);
     }
 
     public CumulativeSpendResponse getCumulativeSpend() {
@@ -290,6 +308,7 @@ public class AggregationService {
         
         // Filter transactions for target month
         List<Transaction> monthTransactions = allTransactions.stream()
+            .filter(AggregationService::isExpense)
             .filter(t -> t.getTransactionDateTime() >= startOfTargetMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
                 && t.getTransactionDateTime() <= effectiveEndDate.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
             .collect(Collectors.toList());

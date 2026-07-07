@@ -76,6 +76,25 @@ public class AggregationServiceTest {
     }
 
     @Test
+    void spendExcludesIncomeAndNeutralTransactions() {
+        LocalDate currentMonthStart = LocalDate.now().withDayOfMonth(1);
+
+        Transaction expense = createTransaction(currentMonthStart, new BigDecimal("100.00"));
+        Transaction income = createTransaction(currentMonthStart, new BigDecimal("5000.00"));
+        income.setTransactionType("INCOME");
+        Transaction neutral = createTransaction(currentMonthStart, new BigDecimal("2000.00"));
+        neutral.setTransactionType("NEUTRAL");
+
+        when(transactionService.getAllInRecentYear())
+            .thenReturn(Arrays.asList(expense, income, neutral));
+
+        MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
+        // Only the EXPENSE counts as spend — income (salary) and neutral
+        // (internal transfer / card payment) are excluded.
+        assertEquals("100.00", response.getCurrentMonthSpend());
+    }
+
+    @Test
     void testGetMonthlySpendComparisonWithZeroPriorMonth() {
         // Use current date to avoid mocking issues
         LocalDate now = LocalDate.now();

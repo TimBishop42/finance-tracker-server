@@ -24,8 +24,13 @@ public class TotalWealthResponse {
 
     private List<HoldingView> holdings;
     private List<WealthItemView> items;
+    private List<OptionGrantView> options;
     private List<AllocationSlice> allocation;
     private List<SnapshotView> snapshots;
+
+    // Total intrinsic value of UNVESTED options (display ccy) — shown separately,
+    // NOT included in net worth / totalAssets.
+    private BigDecimal unvestedOptionsValue;
 
     private String asOf;                  // yyyy-MM-dd
 }

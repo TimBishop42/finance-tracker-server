@@ -30,7 +30,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecurringDetectionService {
 
-    private static final String INCOME = "INCOME";
+    private static final String EXPENSE = "EXPENSE";
 
     private final TransactionService transactionService;
     private final CustomMerchantRepository customMerchantRepository;
@@ -41,8 +41,11 @@ public class RecurringDetectionService {
     public RecurringResponse detect() {
         long start = System.currentTimeMillis();
 
+        // Only expenses can be subscriptions/bills. Exclude income and NEUTRAL
+        // (internal transfers / credit-card payments); null type = legacy expense.
         List<Transaction> expenses = transactionService.getAll().stream()
-                .filter(t -> !INCOME.equalsIgnoreCase(t.getTransactionType()))
+                .filter(t -> t.getTransactionType() == null
+                        || EXPENSE.equalsIgnoreCase(t.getTransactionType()))
                 .collect(Collectors.toList());
 
         List<CustomMerchant> customRules = customMerchantRepository.findAll();

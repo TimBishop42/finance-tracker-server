@@ -4,6 +4,7 @@ import com.bishop.FinanceTracker.model.domain.NetWorthSnapshot;
 import com.bishop.FinanceTracker.model.domain.WealthItem;
 import com.bishop.FinanceTracker.model.wealth.AllocationSlice;
 import com.bishop.FinanceTracker.model.wealth.HoldingView;
+import com.bishop.FinanceTracker.model.wealth.OptionGrantView;
 import com.bishop.FinanceTracker.model.wealth.SnapshotView;
 import com.bishop.FinanceTracker.model.wealth.TotalWealthResponse;
 import com.bishop.FinanceTracker.model.wealth.WealthItemView;
@@ -37,12 +38,14 @@ public class WealthService {
 
     private static final int MONEY_SCALE = 2;
     private static final String SHARES = "SHARES";
+    private static final String OPTIONS = "OPTIONS";
     private static final String LIABILITY = "LIABILITY";
     private static final String BASE_CCY = "AUD";
 
     private final WealthItemRepository wealthItemRepository;
     private final NetWorthSnapshotRepository snapshotRepository;
     private final HoldingsService holdingsService;
+    private final OptionValuationService optionValuationService;
     private final FxService fxService;
     private final ObjectMapper objectMapper;
 
@@ -60,14 +63,28 @@ public class WealthService {
             sharesValue = sharesValue.add(h.getMarketValueDisplay());
         }
 
+        // --- Options (intrinsic value; only vested counts toward net worth) ---
+        List<OptionGrantView> options = optionValuationService.computeGrants();
+        BigDecimal optionsVested = BigDecimal.ZERO;
+        BigDecimal optionsUnvested = BigDecimal.ZERO;
+        for (OptionGrantView o : options) {
+            o.setVestedValueDisplay(scale(convert(o.getVestedValueNative(), o.getCurrency(), ccy, fxMissing)));
+            o.setUnvestedValueDisplay(scale(convert(o.getUnvestedValueNative(), o.getCurrency(), ccy, fxMissing)));
+            optionsVested = optionsVested.add(o.getVestedValueDisplay());
+            optionsUnvested = optionsUnvested.add(o.getUnvestedValueDisplay());
+        }
+
         // --- Wealth items (everything else) ---
         List<WealthItem> items = wealthItemRepository.findByArchivedFalseOrderByAssetClassAscNameAsc();
         List<WealthItemView> itemViews = new ArrayList<>();
         Map<String, BigDecimal> classTotals = new LinkedHashMap<>();
-        BigDecimal totalAssets = sharesValue;
+        BigDecimal totalAssets = sharesValue.add(optionsVested);
         BigDecimal totalLiabilities = BigDecimal.ZERO;
         if (!holdings.isEmpty()) {
             classTotals.merge(SHARES, sharesValue, BigDecimal::add);
+        }
+        if (optionsVested.signum() != 0) {
+            classTotals.merge(OPTIONS, optionsVested, BigDecimal::add);
         }
 
         for (WealthItem it : items) {
@@ -140,6 +157,8 @@ public class WealthService {
                 .fxMissing(fxMissing[0])
                 .holdings(holdings)
                 .items(itemViews)
+                .options(options)
+                .unvestedOptionsValue(scale(optionsUnvested))
                 .allocation(allocation)
                 .snapshots(snapViews)
                 .asOf(LocalDate.now().toString())
@@ -163,6 +182,14 @@ public class WealthService {
         }
         if (sharesValue.signum() != 0) classTotals.merge(SHARES, scale(sharesValue), BigDecimal::add);
         assets = assets.add(sharesValue);
+
+        // Vested options only (matching the live view; unvested is not net worth).
+        BigDecimal optionsValue = BigDecimal.ZERO;
+        for (OptionGrantView o : optionValuationService.computeGrants()) {
+            optionsValue = optionsValue.add(convert(o.getVestedValueNative(), o.getCurrency(), BASE_CCY, fxMissing));
+        }
+        if (optionsValue.signum() != 0) classTotals.merge(OPTIONS, scale(optionsValue), BigDecimal::add);
+        assets = assets.add(optionsValue);
 
         for (WealthItem it : wealthItemRepository.findByArchivedFalseOrderByAssetClassAscNameAsc()) {
             BigDecimal v = convert(it.getCurrentValue(), it.getCurrency(), BASE_CCY, fxMissing);

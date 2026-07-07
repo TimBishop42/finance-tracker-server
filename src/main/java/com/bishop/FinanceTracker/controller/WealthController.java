@@ -2,6 +2,7 @@ package com.bishop.FinanceTracker.controller;
 
 import com.bishop.FinanceTracker.model.domain.FxRate;
 import com.bishop.FinanceTracker.model.domain.NetWorthSnapshot;
+import com.bishop.FinanceTracker.model.domain.OptionGrant;
 import com.bishop.FinanceTracker.model.domain.Security;
 import com.bishop.FinanceTracker.model.domain.SecurityPrice;
 import com.bishop.FinanceTracker.model.domain.ShareTrade;
@@ -10,6 +11,7 @@ import com.bishop.FinanceTracker.model.domain.WealthItem;
 import com.bishop.FinanceTracker.model.wealth.TotalWealthResponse;
 import com.bishop.FinanceTracker.repository.FxRateRepository;
 import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
+import com.bishop.FinanceTracker.repository.OptionGrantRepository;
 import com.bishop.FinanceTracker.repository.SecurityPriceRepository;
 import com.bishop.FinanceTracker.repository.SecurityRepository;
 import com.bishop.FinanceTracker.repository.ShareTradeRepository;
@@ -53,6 +55,7 @@ public class WealthController {
     private final SecurityPriceRepository securityPriceRepository;
     private final FxRateRepository fxRateRepository;
     private final NetWorthSnapshotRepository snapshotRepository;
+    private final OptionGrantRepository optionGrantRepository;
 
     // --- Summary -----------------------------------------------------------
 
@@ -347,6 +350,91 @@ public class WealthController {
     }
 
     // --- Body-parsing helpers ----------------------------------------------
+
+    // --- Option grants -----------------------------------------------------
+
+    @GetMapping("/option-grants")
+    public ResponseEntity<List<OptionGrant>> getOptionGrants() {
+        return ResponseEntity.ok(optionGrantRepository.findByArchivedFalseOrderByNameAsc());
+    }
+
+    @PostMapping("/option-grants")
+    public ResponseEntity<OptionGrant> addOptionGrant(@RequestBody Map<String, Object> body) {
+        Long underlyingId = lng(body, "underlyingSecurityId");
+        String grantType = "RSU".equalsIgnoreCase(str(body, "grantType")) ? "RSU" : "OPTION";
+        BigDecimal strike = dec(body, "strike");
+        if (strike == null && "RSU".equals(grantType)) strike = BigDecimal.ZERO; // RSUs have no strike
+        BigDecimal quantity = dec(body, "quantity");
+        String vestStartDate = str(body, "vestStartDate");
+        Long tranches = lng(body, "vestTranches");
+        if (underlyingId == null || strike == null || quantity == null
+                || isBlank(vestStartDate) || tranches == null || tranches <= 0) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (!securityRepository.existsById(underlyingId)) return ResponseEntity.badRequest().build();
+
+        Long interval = lng(body, "vestIntervalMonths");
+        BigDecimal multiplier = dec(body, "multiplier");
+        String expiry = str(body, "expiryDate");
+        OptionGrant g = OptionGrant.builder()
+                .name(isBlank(str(body, "name")) ? "Option grant" : str(body, "name").trim())
+                .grantType(grantType)
+                .underlyingSecurityId(underlyingId)
+                .strike(strike)
+                .quantity(quantity)
+                .multiplier(multiplier == null ? BigDecimal.ONE : multiplier)
+                .vestStartDate(vestStartDate.trim())
+                .vestIntervalMonths(interval == null ? 3 : interval.intValue())
+                .vestTranches(tranches.intValue())
+                .expiryDate(isBlank(expiry) ? null : expiry.trim())
+                .note(str(body, "note"))
+                .archived(false)
+                .createTime(System.currentTimeMillis())
+                .updateTime(System.currentTimeMillis())
+                .build();
+        return ResponseEntity.ok(optionGrantRepository.save(g));
+    }
+
+    @PutMapping("/option-grants/{id}")
+    public ResponseEntity<OptionGrant> updateOptionGrant(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        Optional<OptionGrant> opt = optionGrantRepository.findById(id);
+        if (opt.isEmpty()) return ResponseEntity.notFound().build();
+        OptionGrant g = opt.get();
+        if (body.containsKey("name") && !isBlank(str(body, "name"))) g.setName(str(body, "name").trim());
+        if (body.containsKey("grantType") && !isBlank(str(body, "grantType"))) {
+            g.setGrantType("RSU".equalsIgnoreCase(str(body, "grantType")) ? "RSU" : "OPTION");
+        }
+        if (body.containsKey("strike") && dec(body, "strike") != null) g.setStrike(dec(body, "strike"));
+        if (body.containsKey("quantity") && dec(body, "quantity") != null) g.setQuantity(dec(body, "quantity"));
+        if (body.containsKey("multiplier") && dec(body, "multiplier") != null) g.setMultiplier(dec(body, "multiplier"));
+        if (body.containsKey("vestStartDate") && !isBlank(str(body, "vestStartDate"))) {
+            g.setVestStartDate(str(body, "vestStartDate").trim());
+        }
+        if (body.containsKey("vestIntervalMonths") && lng(body, "vestIntervalMonths") != null) {
+            g.setVestIntervalMonths(lng(body, "vestIntervalMonths").intValue());
+        }
+        if (body.containsKey("vestTranches") && lng(body, "vestTranches") != null) {
+            g.setVestTranches(lng(body, "vestTranches").intValue());
+        }
+        if (body.containsKey("expiryDate")) {
+            String e = str(body, "expiryDate");
+            g.setExpiryDate(isBlank(e) ? null : e.trim());
+        }
+        if (body.containsKey("note")) g.setNote(str(body, "note"));
+        if (body.containsKey("underlyingSecurityId") && lng(body, "underlyingSecurityId") != null) {
+            Long uid = lng(body, "underlyingSecurityId");
+            if (securityRepository.existsById(uid)) g.setUnderlyingSecurityId(uid);
+        }
+        g.setUpdateTime(System.currentTimeMillis());
+        return ResponseEntity.ok(optionGrantRepository.save(g));
+    }
+
+    @DeleteMapping("/option-grants/{id}")
+    public ResponseEntity<Void> deleteOptionGrant(@PathVariable Long id) {
+        if (!optionGrantRepository.existsById(id)) return ResponseEntity.notFound().build();
+        optionGrantRepository.deleteById(id);
+        return ResponseEntity.ok().build();
+    }
 
     private static boolean isBlank(String s) {
         return s == null || s.trim().isEmpty();
