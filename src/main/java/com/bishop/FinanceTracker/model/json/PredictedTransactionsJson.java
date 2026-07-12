@@ -21,6 +21,7 @@ public class PredictedTransactionsJson {
                 .businessName(predicted.getTransactionBusiness())
                 .essential(predicted.isEssential())
                 .duplicateReviewed(predicted.isDuplicateReviewed())
+                .transactionType(predicted.getTransactionType())
                 .build())
             .collect(Collectors.toList());
 

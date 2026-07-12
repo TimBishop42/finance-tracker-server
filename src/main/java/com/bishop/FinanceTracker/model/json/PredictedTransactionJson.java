@@ -37,4 +37,7 @@ public class PredictedTransactionJson {
 
     private boolean duplicateReviewed;
 
+    // EXPENSE | INCOME | NEUTRAL — set by the CSV uploader per row.
+    private String transactionType;
+
 }
