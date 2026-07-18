@@ -2,7 +2,7 @@ package com.bishop.FinanceTracker.service.recurring;
 
 import com.bishop.FinanceTracker.model.domain.CustomMerchant;
 import com.bishop.FinanceTracker.model.recurring.MerchantClass;
-import lombok.extern.slf4j.Slf4j;
+import com.bishop.FinanceTracker.util.SafeRegex;
 import org.springframework.stereotype.Component;
 
 import java.util.Arrays;
@@ -15,15 +15,11 @@ import java.util.regex.Pattern;
  * engine blends into the confidence score — it never bypasses cadence detection
  * (feature doc §2.1/§2.5, fixing the v1 KB-bypass weakness).
  *
- * <p>Custom user patterns are compiled defensively: an invalid or absurdly long
- * regex is skipped rather than allowed to throw or hang (guards UI-N8 / ReDoS).
+ * <p>Custom user patterns are compiled and matched via {@link SafeRegex}, which bounds
+ * match time so catastrophic backtracking can't hang classification (guards UI-N8 / ReDoS).
  */
-@Slf4j
 @Component
 public class MerchantKnowledgeBase {
-
-    /** User regex longer than this is ignored — cheap ReDoS backstop. */
-    private static final int MAX_CUSTOM_PATTERN_LENGTH = 200;
 
     private static final int CI = Pattern.CASE_INSENSITIVE;
 
@@ -84,8 +80,8 @@ public class MerchantKnowledgeBase {
 
         if (customMerchants != null) {
             for (CustomMerchant cm : customMerchants) {
-                Pattern p = safeCompile(cm.getMerchantPattern());
-                if (p != null && p.matcher(merchantName).find()) {
+                Pattern p = SafeRegex.compileIfSafe(cm.getMerchantPattern());
+                if (p != null && SafeRegex.findWithinBudget(p, merchantName)) {
                     MerchantClass.Type type = "bill".equalsIgnoreCase(cm.getMerchantType())
                             ? MerchantClass.Type.BILL
                             : "subscription".equalsIgnoreCase(cm.getMerchantType())
@@ -117,18 +113,6 @@ public class MerchantKnowledgeBase {
             }
         }
         return false;
-    }
-
-    private static Pattern safeCompile(String pattern) {
-        if (pattern == null || pattern.isBlank() || pattern.length() > MAX_CUSTOM_PATTERN_LENGTH) {
-            return null;
-        }
-        try {
-            return Pattern.compile(pattern, CI);
-        } catch (RuntimeException e) {
-            log.warn("Skipping invalid custom merchant pattern '{}': {}", pattern, e.getMessage());
-            return null;
-        }
     }
 
     private static List<Pattern> compileAll(String... regexes) {

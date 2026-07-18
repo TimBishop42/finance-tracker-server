@@ -123,6 +123,14 @@ public class OptionValuationService {
         BigDecimal unvestedValue = intrinsic.multiply(v.unvestedQty()).multiply(multiplier)
                 .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
 
+        // The next tranche to vest: one equal tranche's worth, at current value.
+        int tranches = nz(g.getVestTranches());
+        BigDecimal nextVestQty = (v.nextVestDate() != null && tranches > 0)
+                ? g.getQuantity().divide(BigDecimal.valueOf(tranches), QTY_SCALE, RoundingMode.HALF_UP)
+                : BigDecimal.ZERO;
+        BigDecimal nextVestValue = intrinsic.multiply(nextVestQty).multiply(multiplier)
+                .setScale(MONEY_SCALE, RoundingMode.HALF_UP);
+
         return OptionGrantView.builder()
                 .id(g.getId())
                 .name(g.getName())
@@ -140,8 +148,10 @@ public class OptionValuationService {
                 .vestedQuantity(v.vestedQty())
                 .unvestedQuantity(v.unvestedQty())
                 .vestedTranches(v.vestedTranches())
-                .totalTranches(nz(g.getVestTranches()))
+                .totalTranches(tranches)
                 .nextVestDate(v.nextVestDate())
+                .nextVestQuantity(nextVestQty)
+                .nextVestValueNative(nextVestValue)
                 .underlyingPrice(price)
                 .underlyingPriceDate(priceRow != null ? priceRow.getAsOfDate() : null)
                 .priceMissing(price == null)

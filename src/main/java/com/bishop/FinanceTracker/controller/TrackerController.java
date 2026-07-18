@@ -12,6 +12,7 @@ import com.bishop.FinanceTracker.service.AggregationService;
 import com.bishop.FinanceTracker.service.CategoryService;
 import com.bishop.FinanceTracker.service.TransactionService;
 import com.bishop.FinanceTracker.service.UserSettingsService;
+import com.bishop.FinanceTracker.util.SafeRegex;
 import lombok.Data;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -207,7 +208,9 @@ public class TrackerController {
         String type    = body.get("merchantType");
         if (pattern == null || pattern.isBlank()) return ResponseEntity.badRequest().build();
         if (!"subscription".equals(type) && !"bill".equals(type)) return ResponseEntity.badRequest().build();
-        customMerchantRepository.save(new CustomMerchant(pattern.trim(), type));
+        String trimmed = pattern.trim();
+        if (SafeRegex.compileIfSafe(trimmed) == null) return ResponseEntity.badRequest().build();
+        customMerchantRepository.save(new CustomMerchant(trimmed, type));
         return ResponseEntity.ok().build();
     }
 

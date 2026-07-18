@@ -104,6 +104,19 @@ class OptionValuationServiceTest {
         assertEquals(0, new BigDecimal("8000.00").compareTo(v.getVestedValueNative()));
         assertEquals(0, new BigDecimal("8000.00").compareTo(v.getUnvestedValueNative()));
         assertEquals("USD", v.getCurrency());
+        // Next tranche = 100 units × $40 intrinsic = $4,000.
+        assertEquals(0, new BigDecimal("4000.00").compareTo(v.getNextVestValueNative()));
+    }
+
+    @Test
+    void nextVestValueIsZeroOnceFullyVested() {
+        stubSecurity(new BigDecimal("100"));
+        when(optionGrantRepository.findByArchivedFalseOrderByNameAsc())
+                .thenReturn(List.of(grant(new BigDecimal("60"), new BigDecimal("400"), "2025-01-01", 4, null)));
+
+        OptionGrantView v = service().computeGrants(LocalDate.of(2026, 6, 1)).get(0);
+        assertNull(v.getNextVestDate());
+        assertEquals(0, BigDecimal.ZERO.compareTo(v.getNextVestValueNative().stripTrailingZeros()));
     }
 
     @Test

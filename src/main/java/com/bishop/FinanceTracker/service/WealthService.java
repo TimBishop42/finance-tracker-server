@@ -70,6 +70,7 @@ public class WealthService {
         for (OptionGrantView o : options) {
             o.setVestedValueDisplay(scale(convert(o.getVestedValueNative(), o.getCurrency(), ccy, fxMissing)));
             o.setUnvestedValueDisplay(scale(convert(o.getUnvestedValueNative(), o.getCurrency(), ccy, fxMissing)));
+            o.setNextVestValueDisplay(scale(convert(o.getNextVestValueNative(), o.getCurrency(), ccy, fxMissing)));
             optionsVested = optionsVested.add(o.getVestedValueDisplay());
             optionsUnvested = optionsUnvested.add(o.getUnvestedValueDisplay());
         }

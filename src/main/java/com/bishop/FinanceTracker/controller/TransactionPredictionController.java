@@ -22,7 +22,11 @@ public class TransactionPredictionController {
     private final TransactionPredictionService predictionService;
 
     @PostMapping("/predict-batch")
-    public ResponseEntity<List<CategorizedTransaction>> predictBatch(@RequestBody List<TransactionRaw> transactionRawJsonList) {
+    public ResponseEntity<List<CategorizedTransaction>> predictBatch(@RequestBody(required = false) List<TransactionRaw> transactionRawJsonList) {
+        if (transactionRawJsonList == null || transactionRawJsonList.isEmpty()) {
+            log.warn("Received predict-batch request with a null or empty transaction list");
+            return ResponseEntity.badRequest().build();
+        }
         log.info("Received request to predict categories of {} transactions", transactionRawJsonList.size());
         List<CategorizedTransaction> result = predictionService.predictBatch(transactionRawJsonList);
         return ResponseEntity.ok(result);

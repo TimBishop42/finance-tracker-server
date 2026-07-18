@@ -37,6 +37,12 @@ public class OptionGrantView {
     private int totalTranches;
     private String nextVestDate;         // yyyy-MM-dd, null if fully vested
 
+    // Value of the next tranche to vest (one tranche at current intrinsic value);
+    // zero once fully vested.
+    private BigDecimal nextVestQuantity;
+    private BigDecimal nextVestValueNative;
+    private BigDecimal nextVestValueDisplay;
+
     private BigDecimal underlyingPrice;  // native, null if no price
     private String underlyingPriceDate;
     private boolean priceMissing;
