@@ -8,6 +8,7 @@ import com.bishop.FinanceTracker.model.domain.SecurityPrice;
 import com.bishop.FinanceTracker.model.domain.ShareTrade;
 import com.bishop.FinanceTracker.model.domain.StockSplit;
 import com.bishop.FinanceTracker.model.domain.WealthItem;
+import com.bishop.FinanceTracker.model.wealth.KidsWealthResponse;
 import com.bishop.FinanceTracker.model.wealth.TotalWealthResponse;
 import com.bishop.FinanceTracker.repository.FxRateRepository;
 import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
@@ -31,6 +32,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Total Wealth / Net Worth tracker API. Manual entry in v1 (holdings, prices,
@@ -63,6 +65,18 @@ public class WealthController {
     public ResponseEntity<TotalWealthResponse> getSummary(
             @RequestParam(value = "currency", required = false) String currency) {
         return ResponseEntity.ok(wealthService.getSummary(currency));
+    }
+
+    @GetMapping("/kids/summary")
+    public ResponseEntity<KidsWealthResponse> getKidsSummary(
+            @RequestParam(value = "currency", required = false) String currency) {
+        return ResponseEntity.ok(wealthService.getKidsSummary(currency));
+    }
+
+    @PostMapping("/kids/snapshot")
+    public ResponseEntity<Void> runKidsSnapshot() {
+        wealthService.runKidsSnapshot();
+        return ResponseEntity.ok().build();
     }
 
     // --- Wealth items (assets & liabilities) -------------------------------
@@ -164,9 +178,18 @@ public class WealthController {
 
     // --- Trades ------------------------------------------------------------
 
+    // The only two kids' portfolios this app tracks — see KidsWealthTracker (UI) / WealthService.getKidsSummary.
+    private static final Set<String> KID_OWNERS = Set.of("CHLOE", "MILLIE");
+
     @GetMapping("/trades")
-    public ResponseEntity<List<ShareTrade>> getTrades() {
-        return ResponseEntity.ok(shareTradeRepository.findAllByOrderByTradeDateAscIdAsc());
+    public ResponseEntity<List<ShareTrade>> getTrades(
+            @RequestParam(value = "owner", required = false) String owner) {
+        if (isBlank(owner)) {
+            return ResponseEntity.ok(shareTradeRepository.findAllByOwnerIsNullOrderByTradeDateAscIdAsc());
+        }
+        String o = owner.trim().toUpperCase();
+        if (!KID_OWNERS.contains(o)) return ResponseEntity.badRequest().build();
+        return ResponseEntity.ok(shareTradeRepository.findAllByOwnerOrderByTradeDateAscIdAsc(o));
     }
 
     @PostMapping("/trades")
@@ -182,6 +205,14 @@ public class WealthController {
         if (!securityRepository.existsById(securityId)) return ResponseEntity.badRequest().build();
         String s = side.trim().toUpperCase();
         if (!"BUY".equals(s) && !"SELL".equals(s)) return ResponseEntity.badRequest().build();
+
+        String owner = null;
+        String ownerRaw = str(body, "owner");
+        if (!isBlank(ownerRaw)) {
+            owner = ownerRaw.trim().toUpperCase();
+            if (!KID_OWNERS.contains(owner)) return ResponseEntity.badRequest().build();
+        }
+
         BigDecimal fee = dec(body, "fee");
         ShareTrade trade = ShareTrade.builder()
                 .securityId(securityId)
@@ -191,6 +222,7 @@ public class WealthController {
                 .fee(fee == null ? BigDecimal.ZERO : fee)
                 .tradeDate(tradeDate.trim())
                 .note(str(body, "note"))
+                .owner(owner)
                 .createTime(System.currentTimeMillis())
                 .build();
         return ResponseEntity.ok(shareTradeRepository.save(trade));

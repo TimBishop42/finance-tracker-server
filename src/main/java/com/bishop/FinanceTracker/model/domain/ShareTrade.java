@@ -48,6 +48,12 @@ public class ShareTrade {
     @Column(name = "note", length = 200)
     private String note;
 
+    // CHLOE | MILLIE | null (the owner's own/household trade). Nullable so ddl-auto
+    // can add it to an existing populated table — a null value (pre-existing rows)
+    // means household, matching OptionGrant.grantType's precedent for this codebase.
+    @Column(name = "owner", length = 20)
+    private String owner;
+
     @Column(name = "create_time", nullable = false)
     private Long createTime;
 }

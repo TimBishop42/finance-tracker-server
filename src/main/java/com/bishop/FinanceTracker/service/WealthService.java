@@ -1,13 +1,18 @@
 package com.bishop.FinanceTracker.service;
 
+import com.bishop.FinanceTracker.model.domain.KidPortfolioSnapshot;
 import com.bishop.FinanceTracker.model.domain.NetWorthSnapshot;
 import com.bishop.FinanceTracker.model.domain.WealthItem;
 import com.bishop.FinanceTracker.model.wealth.AllocationSlice;
 import com.bishop.FinanceTracker.model.wealth.HoldingView;
+import com.bishop.FinanceTracker.model.wealth.KidPortfolioView;
+import com.bishop.FinanceTracker.model.wealth.KidSnapshotView;
+import com.bishop.FinanceTracker.model.wealth.KidsWealthResponse;
 import com.bishop.FinanceTracker.model.wealth.OptionGrantView;
 import com.bishop.FinanceTracker.model.wealth.SnapshotView;
 import com.bishop.FinanceTracker.model.wealth.TotalWealthResponse;
 import com.bishop.FinanceTracker.model.wealth.WealthItemView;
+import com.bishop.FinanceTracker.repository.KidPortfolioSnapshotRepository;
 import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
 import com.bishop.FinanceTracker.repository.WealthItemRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -41,9 +46,12 @@ public class WealthService {
     private static final String OPTIONS = "OPTIONS";
     private static final String LIABILITY = "LIABILITY";
     private static final String BASE_CCY = "AUD";
+    private static final String OWNER_CHLOE = "CHLOE";
+    private static final String OWNER_MILLIE = "MILLIE";
 
     private final WealthItemRepository wealthItemRepository;
     private final NetWorthSnapshotRepository snapshotRepository;
+    private final KidPortfolioSnapshotRepository kidPortfolioSnapshotRepository;
     private final HoldingsService holdingsService;
     private final OptionValuationService optionValuationService;
     private final FxService fxService;
@@ -166,6 +174,61 @@ public class WealthService {
                 .build();
     }
 
+    /**
+     * The simplified "Kids' Portfolios" view — Chloe's and Millie's stock holdings,
+     * valued the same way as the household holdings (average cost, same FX
+     * conversion), but fully separate from {@link #getSummary} / net worth.
+     */
+    public KidsWealthResponse getKidsSummary(String displayCurrency) {
+        final String ccy = normaliseCcy(displayCurrency);
+        final boolean[] fxMissing = {false};
+
+        KidPortfolioView chloe = buildKidPortfolio(OWNER_CHLOE, ccy, fxMissing);
+        KidPortfolioView millie = buildKidPortfolio(OWNER_MILLIE, ccy, fxMissing);
+
+        return KidsWealthResponse.builder()
+                .displayCurrency(ccy)
+                .fxRateUsdAud(fxService.latestUsdAud().orElse(null))
+                .fxMissing(fxMissing[0])
+                .chloe(chloe)
+                .millie(millie)
+                .asOf(LocalDate.now().toString())
+                .build();
+    }
+
+    private KidPortfolioView buildKidPortfolio(String owner, String ccy, boolean[] fxMissing) {
+        List<HoldingView> holdings = holdingsService.computeHoldings(owner);
+        BigDecimal value = BigDecimal.ZERO;
+        BigDecimal unrealised = BigDecimal.ZERO;
+        BigDecimal realised = BigDecimal.ZERO;
+        for (HoldingView h : holdings) {
+            h.setMarketValueDisplay(scale(convert(h.getMarketValueNative(), h.getCurrency(), ccy, fxMissing)));
+            h.setUnrealisedPlDisplay(scale(convert(h.getUnrealisedPlNative(), h.getCurrency(), ccy, fxMissing)));
+            h.setRealisedPlDisplay(scale(convert(h.getRealisedPlNative(), h.getCurrency(), ccy, fxMissing)));
+            value = value.add(h.getMarketValueDisplay());
+            unrealised = unrealised.add(h.getUnrealisedPlDisplay());
+            realised = realised.add(h.getRealisedPlDisplay());
+        }
+
+        List<KidSnapshotView> snapViews = new ArrayList<>();
+        for (KidPortfolioSnapshot s : kidPortfolioSnapshotRepository.findAllByOwnerOrderByAsOfDateAsc(owner)) {
+            String base = s.getBaseCcy() == null ? BASE_CCY : s.getBaseCcy();
+            snapViews.add(KidSnapshotView.builder()
+                    .asOfDate(s.getAsOfDate())
+                    .valueDisplay(scale(convert(s.getPortfolioValue(), base, ccy, fxMissing)))
+                    .build());
+        }
+
+        return KidPortfolioView.builder()
+                .owner(owner)
+                .portfolioValueDisplay(scale(value))
+                .unrealisedPlDisplay(scale(unrealised))
+                .realisedPlDisplay(scale(realised))
+                .holdings(holdings)
+                .snapshots(snapViews)
+                .build();
+    }
+
     /** Compute current totals in base AUD and upsert this month's snapshot (idempotent). */
     public NetWorthSnapshot runSnapshot() {
         // One row per calendar day (upsert): re-running on the same day overwrites that
@@ -220,10 +283,33 @@ public class WealthService {
         return saved;
     }
 
+    /** Compute today's portfolio value (base AUD) for each kid and upsert their snapshot row. */
+    public void runKidsSnapshot() {
+        final String asOf = LocalDate.now().toString();
+        final boolean[] fxMissing = {false};
+        for (String owner : List.of(OWNER_CHLOE, OWNER_MILLIE)) {
+            BigDecimal value = BigDecimal.ZERO;
+            for (HoldingView h : holdingsService.computeHoldings(owner)) {
+                value = value.add(convert(h.getMarketValueNative(), h.getCurrency(), BASE_CCY, fxMissing));
+            }
+            KidPortfolioSnapshot snap = kidPortfolioSnapshotRepository.findByOwnerAndAsOfDate(owner, asOf)
+                    .orElseGet(KidPortfolioSnapshot::new);
+            snap.setOwner(owner);
+            snap.setAsOfDate(asOf);
+            snap.setBaseCcy(BASE_CCY);
+            snap.setPortfolioValue(scale(value));
+            kidPortfolioSnapshotRepository.save(snap);
+        }
+        if (fxMissing[0]) {
+            log.warn("Kids' portfolio snapshot for {} written with a missing FX rate (USD treated 1:1)", asOf);
+        }
+    }
+
     @Scheduled(cron = "0 0 2 1 * *") // 02:00 on the 1st of each month
     public void monthlySnapshot() {
         try {
             runSnapshot();
+            runKidsSnapshot();
             log.info("Monthly net-worth snapshot written");
         } catch (Exception e) {
             log.error("Failed to write monthly net-worth snapshot", e);

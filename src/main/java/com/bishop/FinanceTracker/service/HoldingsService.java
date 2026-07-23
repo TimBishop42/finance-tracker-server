@@ -37,11 +37,23 @@ public class HoldingsService {
     private final SecurityPriceRepository securityPriceRepository;
     private final StockSplitRepository stockSplitRepository;
 
-    /** One holding (in the security's native currency) for every security that has trades. */
+    /** One holding (in the security's native currency) for every household security that has trades. */
     public List<HoldingView> computeHoldings() {
+        return computeHoldings(null);
+    }
+
+    /**
+     * One holding (native currency) for every security with trades belonging to
+     * {@code owner}. Pass {@code null} for the household portfolio (the owner's own
+     * trades — unchanged existing behavior); pass "CHLOE"/"MILLIE" for a kid's
+     * portfolio.
+     */
+    public List<HoldingView> computeHoldings(String owner) {
         List<HoldingView> result = new ArrayList<>();
         for (Security sec : securityRepository.findAll()) {
-            List<ShareTrade> trades = shareTradeRepository.findBySecurityIdOrderByTradeDateAscIdAsc(sec.getId());
+            List<ShareTrade> trades = owner == null
+                    ? shareTradeRepository.findBySecurityIdAndOwnerIsNullOrderByTradeDateAscIdAsc(sec.getId())
+                    : shareTradeRepository.findBySecurityIdAndOwnerOrderByTradeDateAscIdAsc(sec.getId(), owner);
             if (trades.isEmpty()) continue;
             List<StockSplit> splits = stockSplitRepository.findBySecurityIdOrderByExDateAscIdAsc(sec.getId());
             result.add(buildHolding(sec, trades, splits));

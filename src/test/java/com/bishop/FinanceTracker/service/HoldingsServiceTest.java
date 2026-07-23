@@ -62,7 +62,7 @@ class HoldingsServiceTest {
 
     private void givenTrades(List<ShareTrade> trades) {
         when(securityRepository.findAll()).thenReturn(List.of(security()));
-        when(shareTradeRepository.findBySecurityIdOrderByTradeDateAscIdAsc(SEC_ID)).thenReturn(trades);
+        when(shareTradeRepository.findBySecurityIdAndOwnerIsNullOrderByTradeDateAscIdAsc(SEC_ID)).thenReturn(trades);
     }
 
     private void givenSplits(List<StockSplit> splits) {
@@ -180,8 +180,26 @@ class HoldingsServiceTest {
     @Test
     void securityWithNoTradesIsSkipped() {
         when(securityRepository.findAll()).thenReturn(List.of(security()));
-        when(shareTradeRepository.findBySecurityIdOrderByTradeDateAscIdAsc(SEC_ID)).thenReturn(List.of());
+        when(shareTradeRepository.findBySecurityIdAndOwnerIsNullOrderByTradeDateAscIdAsc(SEC_ID)).thenReturn(List.of());
 
         assertTrue(holdingsService.computeHoldings().isEmpty());
+    }
+
+    @Test
+    void ownerScopedHoldingsOnlySeeThatOwnersTrades() {
+        when(securityRepository.findAll()).thenReturn(List.of(security()));
+        when(shareTradeRepository.findBySecurityIdAndOwnerIsNullOrderByTradeDateAscIdAsc(SEC_ID))
+                .thenReturn(List.of());
+        when(shareTradeRepository.findBySecurityIdAndOwnerOrderByTradeDateAscIdAsc(SEC_ID, "CHLOE"))
+                .thenReturn(List.of(trade(1, "BUY", "4", "10", "0", "2024-01-01")));
+        when(shareTradeRepository.findBySecurityIdAndOwnerOrderByTradeDateAscIdAsc(SEC_ID, "MILLIE"))
+                .thenReturn(List.of());
+
+        assertTrue(holdingsService.computeHoldings().isEmpty(), "household has no trades for this security");
+        assertTrue(holdingsService.computeHoldings("MILLIE").isEmpty(), "Millie has no trades for this security");
+
+        List<HoldingView> chloeHoldings = holdingsService.computeHoldings("CHLOE");
+        assertEquals(1, chloeHoldings.size());
+        assertBd("4", chloeHoldings.get(0).getQuantity());
     }
 }
