@@ -53,20 +53,29 @@ public class AggregationService {
 
         Map<MonthYearKey, SummarizingMonth> monthsMap = new HashMap<>();
 
+        // Single pass over expense + income transactions (NEUTRAL is skipped) so a
+        // month with income but no expenses — or vice versa — still gets an entry.
         allTransactions.stream()
-                .filter(AggregationService::isExpense)
+                .filter(t -> isExpense(t) || isIncome(t))
                 .forEach(t -> {
                     MonthYearKey key = MonthYearKey.builder()
                             .month(DateUtil.getMonthFromStringDate(t.getTransactionDate()).name())
                             .year(DateUtil.getYearFromStringDate(t.getTransactionDate()))
                             .build();
-                    monthsMap.computeIfAbsent(key, k -> SummarizingMonth.builder()
+                    SummarizingMonth summarizingMonth = monthsMap.computeIfAbsent(key, k -> SummarizingMonth.builder()
                             .categoryValues(categoryService.getAllCategories().stream().map(c -> new CategoryValue(c.getCategoryName(), k.getMonth()))
                                     .collect(Collectors.toMap(CategoryValue::getCategory, Function.identity())))
                             .month(Month.valueOf(k.getMonth()))
                             .year(k.getYear())
+                            .totalIncome(0.0)
                             .build());
-                    CategoryValue categoryValue = monthsMap.get(key).getCategoryValues().get(t.getCategory());
+
+                    if (isIncome(t)) {
+                        summarizingMonth.setTotalIncome(summarizingMonth.getTotalIncome() + t.getAmount().doubleValue());
+                        return;
+                    }
+
+                    CategoryValue categoryValue = summarizingMonth.getCategoryValues().get(t.getCategory());
                     if (categoryValue == null) {
                         log.warn("Skipping transaction id={} — category '{}' not found in category map (orphaned category)",
                                 t.getTransactionId(), t.getCategory());
@@ -258,6 +267,10 @@ public class AggregationService {
     static boolean isExpense(Transaction t) {
         String type = t.getTransactionType();
         return type == null || "EXPENSE".equalsIgnoreCase(type);
+    }
+
+    static boolean isIncome(Transaction t) {
+        return "INCOME".equalsIgnoreCase(t.getTransactionType());
     }
 
     public CumulativeSpendResponse getCumulativeSpend() {

@@ -6,6 +6,7 @@ import com.bishop.FinanceTracker.model.recurring.RecurringCandidate;
 import com.bishop.FinanceTracker.model.recurring.RecurringResponse;
 import com.bishop.FinanceTracker.repository.CustomMerchantRepository;
 import com.bishop.FinanceTracker.repository.ExcludedMerchantRepository;
+import com.bishop.FinanceTracker.service.SubscriptionService;
 import com.bishop.FinanceTracker.service.TransactionService;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -33,6 +34,8 @@ class RecurringDetectionServiceTest {
     private CustomMerchantRepository customMerchantRepository;
     @Mock
     private ExcludedMerchantRepository excludedMerchantRepository;
+    @Mock
+    private SubscriptionService subscriptionService;
 
     private final HeuristicMerchantNormalizer normalizer = new HeuristicMerchantNormalizer();
 
@@ -40,7 +43,8 @@ class RecurringDetectionServiceTest {
         StatisticalRecurringEngine engine = new StatisticalRecurringEngine(
                 normalizer, new PhaseSpaceCadenceDetector(), new MerchantKnowledgeBase());
         return new RecurringDetectionService(
-                transactionService, customMerchantRepository, excludedMerchantRepository, engine, normalizer);
+                transactionService, customMerchantRepository, excludedMerchantRepository, engine, normalizer,
+                subscriptionService);
     }
 
     private Transaction txn(String name, double amount, LocalDate date, String type) {

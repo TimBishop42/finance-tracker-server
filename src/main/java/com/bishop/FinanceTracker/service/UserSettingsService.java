@@ -41,4 +41,29 @@ public class UserSettingsService {
         repository.save(settings);
         log.info("Updated max spend value to: {}", value);
     }
-} 
+
+    /** Monthly subscription-spend target (feature doc §2A.3). BigDecimal.ZERO = unset. */
+    public BigDecimal getSubscriptionBudget() {
+        return repository.findById(1L)
+            .map(UserSettings::getSubscriptionBudget)
+            .filter(v -> v != null)
+            .orElse(BigDecimal.ZERO);
+    }
+
+    public void setSubscriptionBudget(BigDecimal value) {
+        if (value == null || value.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Subscription budget cannot be negative");
+        }
+
+        UserSettings settings = repository.findById(1L)
+            .orElseGet(() -> {
+                UserSettings newSettings = new UserSettings();
+                newSettings.setId(1L);
+                return newSettings;
+            });
+
+        settings.setSubscriptionBudget(value);
+        repository.save(settings);
+        log.info("Updated subscription budget to: {}", value);
+    }
+}

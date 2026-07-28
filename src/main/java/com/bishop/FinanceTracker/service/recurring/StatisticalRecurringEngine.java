@@ -53,6 +53,8 @@ public class StatisticalRecurringEngine implements RecurringDetectionEngine {
     private static final double RECENCY_MULTIPLIER = 1.8;
     /** Ignore cheap noise from unknown merchants (KB-known subs bypass this floor). */
     private static final double MIN_AVG_AMOUNT_UNKNOWN = 5.0;
+    /** Amount CV ceiling for the lenient "looks repeated" suggestion fallback. */
+    private static final double LENIENT_AMOUNT_CV = 0.25;
 
     private final MerchantNormalizer normalizer;
     private final CadenceDetector cadenceDetector;
@@ -109,12 +111,6 @@ public class StatisticalRecurringEngine implements RecurringDetectionEngine {
         boolean known = knowledge.isKnown();
 
         List<LocalDate> dates = g.dates();
-        Optional<CadenceResult> cadenceOpt = cadenceDetector.detect(dates);
-
-        // Unknown merchant with no detectable cadence → not recurring.
-        if (cadenceOpt.isEmpty() && !known) {
-            return null;
-        }
 
         double[] amounts = g.amounts();
         double avg = mean(amounts);
@@ -125,9 +121,26 @@ public class StatisticalRecurringEngine implements RecurringDetectionEngine {
             return null;
         }
 
-        // Resolve a working cadence: the phase-space result, or a gap-estimate for
-        // KB-known merchants that have too few points to score statistically.
-        CadenceResult cadenceResult = cadenceOpt.orElseGet(() -> estimateCadence(dates));
+        Optional<CadenceResult> cadenceOpt = cadenceDetector.detect(dates);
+
+        // Resolve a working cadence and whether this is a confident detection or a
+        // looser "suggestion". Priority: phase-space fit → KB-known gap-estimate →
+        // lenient repeated-merchant fallback (surfaces thin-history / noisy-descriptor
+        // bills the strict detector drops, as a suggestion the user can confirm).
+        CadenceResult cadenceResult;
+        boolean suggestion;
+        if (cadenceOpt.isPresent()) {
+            cadenceResult = cadenceOpt.get();
+            suggestion = false;
+        } else if (known) {
+            cadenceResult = estimateCadence(dates);
+            suggestion = false;
+        } else if (looksRepeated(dates, amountCv)) {
+            cadenceResult = estimateCadence(dates);
+            suggestion = true;
+        } else {
+            return null;
+        }
         if (cadenceResult == null) {
             return null;
         }
@@ -188,7 +201,29 @@ public class StatisticalRecurringEngine implements RecurringDetectionEngine {
                 .bill(isBill)
                 .knowledgeType(knowledge.type().name().toLowerCase())
                 .knowledgeSource(knowledge.source())
+                .suggestion(suggestion)
                 .build();
+    }
+
+    /**
+     * Lenient fallback for unknown merchants the phase-space detector won't score:
+     * a few similarly-priced charges at a roughly regular gap. Surfaced as a
+     * low-confidence suggestion (never a confident detection) so thin-history or
+     * noisy-descriptor bills/subs still appear for the user to confirm.
+     */
+    private boolean looksRepeated(List<LocalDate> dates, double amountCv) {
+        if (dates.size() < 2 || amountCv > LENIENT_AMOUNT_CV) {
+            return false;
+        }
+        if (dates.size() == 2) {
+            long gap = ChronoUnit.DAYS.between(dates.get(0), dates.get(1));
+            return gap >= 25 && gap <= 400; // plausible monthly…annual spacing
+        }
+        double[] gaps = new double[dates.size() - 1];
+        for (int i = 1; i < dates.size(); i++) {
+            gaps[i - 1] = ChronoUnit.DAYS.between(dates.get(i - 1), dates.get(i));
+        }
+        return coefficientOfVariation(gaps) < 0.5; // gaps roughly regular
     }
 
     /**

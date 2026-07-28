@@ -17,6 +17,8 @@ public class DisplayMonth {
 
     private Double totalMonthlySpend;
 
+    private Double totalMonthlyIncome;
+
     private Collection<CategoryValue> categoryValues;
 
     public static DisplayMonth to(SummarizingMonth summarizingMonth) {
@@ -24,6 +26,7 @@ public class DisplayMonth {
                 .month(summarizingMonth.getMonth())
                 .year(summarizingMonth.getYear())
                 .totalMonthlySpend(0.0)
+                .totalMonthlyIncome(summarizingMonth.getTotalIncome() == null ? 0.0 : summarizingMonth.getTotalIncome())
                 .categoryValues(summarizingMonth.getCategoryValues().values())
                 .build();
         month.calcMonthlySpend();

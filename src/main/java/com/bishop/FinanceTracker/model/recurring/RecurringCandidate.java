@@ -56,6 +56,48 @@ public class RecurringCandidate {
     private String knowledgeType;      // subscription | bill | unknown
     private String knowledgeSource;    // custom | seed | statistical
 
+    /** Low-confidence "looks repeated" match (lenient fallback), surfaced as a suggestion to confirm. */
+    private boolean suggestion;
+
     /** User has dismissed this merchant (matches an excluded_merchants entry). */
     private boolean dismissed;
+
+    /** True for a user-entered bill (Bill Calendar "Add Bill"), as opposed to statistically detected. */
+    private boolean manual;
+    /** Backing {@code ManualBill} id, for edit/delete calls; null for detected candidates. @deprecated use subscriptionId. */
+    @Deprecated
+    private Long manualBillId;
+
+    // --- unified subscription fields (feature doc §2A) ---
+    /** Persisted {@link com.bishop.FinanceTracker.model.domain.Subscription} id; null for an unconfirmed detection. */
+    private Long subscriptionId;
+    /** True when a detected candidate has already been promoted to a persisted subscription. */
+    private boolean confirmed;
+    /** bill | subscription | other. */
+    private String kind;
+    /** trial | active | price_changed | at_risk | paused | cancelled. */
+    private String status;
+    private String paymentMethod;
+    private String payer;
+    private String url;
+    private String logo;
+    /** daily | weekly | fortnightly | monthly | quarterly | semiannual | annual | lifetime. */
+    private String billingCycle;
+    private String trialEndDate;      // yyyy-MM-dd
+    private String notes;
+    /** Dated amounts for price-creep display (chronological). */
+    private List<PricePoint> priceHistory;
+    /** True when the automatic signals flag this as a cancel candidate (§2A.4.3). */
+    private boolean cancelCandidate;
+    /** Human-readable reasons behind {@link #cancelCandidate}. */
+    private List<String> cancelReasons;
+    /** Transaction ids manually linked as this commitment's charges (§2A.5), for the link picker. */
+    private List<Long> linkedTransactionIds;
+
+    @Data
+    @Builder
+    public static class PricePoint {
+        private String date;         // yyyy-MM-dd
+        private BigDecimal amount;
+    }
 }

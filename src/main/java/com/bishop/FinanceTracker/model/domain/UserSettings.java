@@ -21,4 +21,8 @@ public class UserSettings {
 
     @Column(name = "max_spend_value", precision = 10, scale = 2)
     private BigDecimal maxSpendValue;
-} 
+
+    /** Monthly subscription-spend target for the Subscription dashboard (feature doc §2A.3). */
+    @Column(name = "subscription_budget", precision = 10, scale = 2)
+    private BigDecimal subscriptionBudget;
+}

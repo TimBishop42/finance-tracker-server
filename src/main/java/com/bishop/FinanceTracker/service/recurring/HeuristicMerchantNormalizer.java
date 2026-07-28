@@ -54,6 +54,16 @@ public class HeuristicMerchantNormalizer implements MerchantNormalizer {
     // "microsoft 365" lose the number, which is fine for grouping.
     private static final Pattern REF_NUMBER = Pattern.compile("\\b[a-z]*\\d{3,}[a-z0-9]*\\b", Pattern.CASE_INSENSITIVE);
 
+    // Bank / ACH web-payment descriptor noise, e.g. "HUDSON ... WEB PMTS ... WEB ID: 900190".
+    private static final Pattern PAYMENT_NOISE = Pattern.compile(
+            "\\b(?:web\\s+pmts?|web\\s+id|web|pmts?|ach)\\b", Pattern.CASE_INSENSITIVE);
+
+    // Mixed alphanumeric reference codes (≥5 chars, containing both letters and digits),
+    // e.g. "QKX1V1" — bank per-payment references that otherwise split a merchant into
+    // one-off groups. Stable legit tokens survive grouping either way; this only helps.
+    private static final Pattern REF_CODE = Pattern.compile(
+            "\\b(?=[a-z0-9]*[a-z])(?=[a-z0-9]*[0-9])[a-z0-9]{5,}\\b", Pattern.CASE_INSENSITIVE);
+
     private static final Pattern NON_ALNUM = Pattern.compile("[^a-z0-9]+");
     private static final Pattern MULTISPACE = Pattern.compile("\\s+");
 
@@ -74,6 +84,8 @@ public class HeuristicMerchantNormalizer implements MerchantNormalizer {
         s = CARD_TAIL.matcher(s).replaceAll(" ");
         s = DATE.matcher(s).replaceAll(" ");
         s = REF_NUMBER.matcher(s).replaceAll(" ");
+        s = REF_CODE.matcher(s).replaceAll(" ");
+        s = PAYMENT_NOISE.matcher(s).replaceAll(" ");
         s = SUFFIX.matcher(s).replaceAll(" ");
         s = NON_ALNUM.matcher(s).replaceAll(" ");
         s = MULTISPACE.matcher(s).replaceAll(" ").trim();

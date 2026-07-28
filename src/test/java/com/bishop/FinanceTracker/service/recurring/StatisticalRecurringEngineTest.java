@@ -100,4 +100,29 @@ class StatisticalRecurringEngineTest {
         RecurringCandidate c = find(engine.detect(monthly("SPOTIFY", 12.0, 8, 0), List.of()), "SPOTIFY").orElseThrow();
         assertFalse(LocalDate.parse(c.getNextPredictedDate()).isBefore(LocalDate.now(ZONE)));
     }
+
+    @Test
+    void surfacesThinHistoryUnknownAsSuggestion() {
+        // Two same-priced charges ~1 month apart, merchant not in the KB — too thin for
+        // the phase-space detector, but surfaced as a low-confidence suggestion to confirm.
+        LocalDate today = LocalDate.now(ZONE);
+        List<Transaction> twoCharges = List.of(
+                txn("BREAKING POINTS", 10.0, today.minusMonths(1)),
+                txn("BREAKING POINTS", 10.0, today));
+        RecurringCandidate c = find(engine.detect(twoCharges, List.of()), "BREAKING POINTS").orElseThrow();
+        assertTrue(c.isSuggestion());
+    }
+
+    @Test
+    void groupsNoisyBankDescriptorAcrossVaryingReferences() {
+        // Same payee, different per-payment reference codes each month — must still group.
+        LocalDate today = LocalDate.now(ZONE);
+        List<Transaction> rent = List.of(
+                txn("HUDSON CBD FLATB WEB PMTS QKX1V1 WEB ID: 9001904314", 6249.41, today.minusMonths(2)),
+                txn("HUDSON CBD FLATB WEB PMTS ZZ9K2P WEB ID: 9001904314", 6300.00, today.minusMonths(1)),
+                txn("HUDSON CBD FLATB WEB PMTS AA1B2C WEB ID: 9001904314", 6200.00, today));
+        List<RecurringCandidate> out = engine.detect(rent, List.of());
+        assertEquals(1, out.stream().filter(c -> c.getName().toLowerCase().contains("hudson")).count(),
+                "varying references must collapse to one group");
+    }
 }

@@ -37,6 +37,7 @@ public class RecurringDetectionService {
     private final ExcludedMerchantRepository excludedMerchantRepository;
     private final RecurringDetectionEngine engine;
     private final MerchantNormalizer normalizer;
+    private final com.bishop.FinanceTracker.service.SubscriptionService subscriptionService;
 
     public RecurringResponse detect() {
         long start = System.currentTimeMillis();
@@ -61,7 +62,17 @@ public class RecurringDetectionService {
                 .filter(k -> !k.isBlank())
                 .collect(Collectors.toSet());
 
-        candidates.forEach(c -> c.setDismissed(dismissedKeys.contains(c.getKey())));
+        // Annotate detections already promoted into the unified subscriptions table
+        // (feature doc §2A.4.2) so the UI can show "tracked" state and avoid dupes.
+        java.util.Map<String, Long> confirmed = subscriptionService.confirmedKeyToId();
+        candidates.forEach(c -> {
+            c.setDismissed(dismissedKeys.contains(c.getKey()));
+            Long subId = confirmed.get(c.getKey());
+            if (subId != null) {
+                c.setConfirmed(true);
+                c.setSubscriptionId(subId);
+            }
+        });
 
         log.info("Recurring detection ({}) produced {} candidates from {} expenses in {} ms",
                 engine.name(), candidates.size(), expenses.size(), System.currentTimeMillis() - start);

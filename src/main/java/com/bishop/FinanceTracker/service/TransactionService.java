@@ -42,6 +42,7 @@ public class TransactionService {
     private final TransactionRepository transactionRepository;
     private Cache<Long, Transaction> transactionCache;
     private final TransactionPredictionService predictionService;
+    private final SubscriptionService subscriptionService;
 
     private static final String CONSTRAINT_VIOLOATION_MESSAGE = "Error on field: %s. Reason: %s";
 
@@ -142,6 +143,11 @@ public class TransactionService {
             return SaveTransactionResponse.serverError(e.getMessage(), transactionJson.toString());
         }
         transactionCache.put(newTransaction.getTransactionId(), newTransaction);
+        try {
+            subscriptionService.tryMatchAndMarkPaid(newTransaction);
+        } catch (Exception e) {
+            log.error("Error matching transaction {} against subscriptions", newTransaction.getTransactionId(), e);
+        }
         log.info("Saved new transaction: {} in {} milliseconds", newTransaction, System.currentTimeMillis() - startTime);
         return SaveTransactionResponse.success(String.format("Successfully saved transaction with id %s", newTransaction.getTransactionId()), newTransaction.toString(), "");
     }

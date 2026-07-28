@@ -23,3 +23,11 @@ app:
     # Default: 6pm daily. For twice-daily use e.g. "0 0 8,18 * * *".
     cron: "0 0 18 * * *"
     zone: Australia/Sydney
+  # Subscription/bill notification engine (feature doc §2A.1). Delivery is DEFERRED:
+  # the wired Notifier is a no-op logger until an email channel is added (pending a
+  # domain + mail server). The triggers/sweep below run regardless.
+  notifications:
+    enabled: true
+    lead-days: 3 # alert this many days before a charge / trial end
+    budget-thresholds: "90,100" # % of monthly target that trigger an overrun alert
+    cron: "0 0 8 * * *" # daily sweep, 8am Australia/Sydney
