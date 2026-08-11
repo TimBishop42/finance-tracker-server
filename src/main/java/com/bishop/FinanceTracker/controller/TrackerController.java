@@ -99,6 +99,30 @@ public class TrackerController {
         }
     }
 
+    @PutMapping("/update-transaction")
+    public Mono<ResponseEntity> updateTransaction(@RequestBody TransactionUpdateRequest request) {
+        log.info("Received request to update transaction: {}", request.getTransactionId());
+        try {
+            return Mono.just(ResponseEntity.ok(transactionService.updateTransaction(request)));
+        } catch (IllegalArgumentException e) {
+            log.warn("Rejected transaction update: {}", e.getMessage());
+            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
+    }
+
+    @PostMapping("/recategorise-merchant")
+    public Mono<ResponseEntity> recategoriseMerchant(@RequestBody Map<String, String> body) {
+        String businessName = body.get("businessName");
+        String category = body.get("category");
+        log.info("Received request to recategorise merchant '{}' to '{}'", businessName, category);
+        try {
+            int updated = transactionService.recategoriseMerchant(businessName, category);
+            return Mono.just(ResponseEntity.ok(Map.of("updated", updated)));
+        } catch (IllegalArgumentException e) {
+            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
+    }
+
     @PostMapping("/delete-transaction")
     public Mono<ResponseEntity<String>> deleteTransaction(@RequestBody TransactionDeleteRequest request) {
         log.info("Received request to delete transaction: {}", request.getTransactionId());

@@ -7,6 +7,9 @@ import com.bishop.FinanceTracker.model.json.TransactionDeleteRequest;
 import com.bishop.FinanceTracker.model.json.TransactionJson;
 import com.bishop.FinanceTracker.model.json.TransactionsJson;
 import com.bishop.FinanceTracker.model.json.PredictedTransactionsJson;
+import com.bishop.FinanceTracker.model.json.TransactionUpdateRequest;
+import com.bishop.FinanceTracker.util.DateUtil;
+import java.time.ZoneId;
 import com.bishop.FinanceTracker.repository.TransactionRepository;
 import com.bishop.FinanceTracker.util.JsonValidator;
 import com.github.benmanes.caffeine.cache.Cache;
@@ -244,6 +247,74 @@ public class TransactionService {
         transactionRepository.deleteById(request.getTransactionId());
         transactionCache.invalidate(request.getTransactionId());
         log.info("Deleted transaction with id {} in {} milliseconds", request.getTransactionId(), System.currentTimeMillis() - startTime);
+    }
+
+    /** Partial edit of an existing transaction (review UI). Null fields are left unchanged. */
+    public Transaction updateTransaction(TransactionUpdateRequest request) {
+        if (isNull(request.getTransactionId())) {
+            throw new IllegalArgumentException("transactionId is required");
+        }
+        Transaction tx = transactionCache.getIfPresent(request.getTransactionId());
+        if (isNull(tx)) {
+            tx = transactionRepository.findById(request.getTransactionId()).orElse(null);
+        }
+        if (isNull(tx)) {
+            throw new IllegalArgumentException("Transaction not found");
+        }
+
+        if (nonNull(request.getCategory()) && !request.getCategory().isBlank()) {
+            tx.setCategory(request.getCategory());
+        }
+        if (nonNull(request.getAmount())) {
+            try {
+                tx.setAmount(new BigDecimal(request.getAmount().trim()));
+            } catch (NumberFormatException e) {
+                throw new IllegalArgumentException("Invalid amount: " + request.getAmount());
+            }
+        }
+        if (nonNull(request.getTransactionDate())) {
+            tx.setTransactionDateTime(request.getTransactionDate());
+            tx.setTransactionDate(DateUtil.getLocalizedDateString(
+                    request.getTransactionDate(), ZoneId.of("Australia/Sydney")));
+        }
+        if (nonNull(request.getComment())) {
+            tx.setComment(request.getComment());
+        }
+        if (nonNull(request.getBusinessName())) {
+            tx.setBusinessName(request.getBusinessName());
+        }
+        if (nonNull(request.getEssential())) {
+            tx.setEssential(request.getEssential());
+        }
+        if (nonNull(request.getTransactionType()) && !request.getTransactionType().isBlank()) {
+            tx.setTransactionType(request.getTransactionType());
+        }
+
+        Transaction saved = transactionRepository.save(tx);
+        transactionCache.put(saved.getTransactionId(), saved);
+        log.info("Updated transaction id={}", saved.getTransactionId());
+        return saved;
+    }
+
+    /** Bulk-recategorise every transaction from a merchant (case-insensitive exact name). Returns count changed. */
+    public int recategoriseMerchant(String businessName, String category) {
+        if (isNull(businessName) || businessName.isBlank() || isNull(category) || category.isBlank()) {
+            throw new IllegalArgumentException("businessName and category are required");
+        }
+        String target = businessName.trim().toLowerCase();
+        int count = 0;
+        for (Transaction t : transactionCache.asMap().values()) {
+            if (nonNull(t.getBusinessName())
+                    && t.getBusinessName().trim().toLowerCase().equals(target)
+                    && !category.equals(t.getCategory())) {
+                t.setCategory(category);
+                transactionRepository.save(t);
+                transactionCache.put(t.getTransactionId(), t);
+                count++;
+            }
+        }
+        log.info("Recategorised {} transactions for merchant '{}' → '{}'", count, businessName, category);
+        return count;
     }
 
     public ResponseEntity<Flux<SaveTransactionResponse>> handlePredictedTransactions(PredictedTransactionsJson predictedTransactionsJson) {
