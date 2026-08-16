@@ -15,6 +15,7 @@ import com.bishop.FinanceTracker.model.wealth.WealthItemView;
 import com.bishop.FinanceTracker.repository.KidPortfolioSnapshotRepository;
 import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
 import com.bishop.FinanceTracker.repository.WealthItemRepository;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -89,7 +90,9 @@ public class WealthService {
         Map<String, BigDecimal> classTotals = new LinkedHashMap<>();
         BigDecimal totalAssets = sharesValue.add(optionsVested);
         BigDecimal totalLiabilities = BigDecimal.ZERO;
-        if (!holdings.isEmpty()) {
+        // Non-zero test (not "has holdings") so the live slice matches what
+        // runSnapshot writes into the breakdown for the same position.
+        if (sharesValue.signum() != 0) {
             classTotals.merge(SHARES, sharesValue, BigDecimal::add);
         }
         if (optionsVested.signum() != 0) {
@@ -136,6 +139,7 @@ public class WealthService {
                     .totalAssets(scale(convert(s.getTotalAssets(), base, ccy, fxMissing)))
                     .totalLiabilities(scale(convert(s.getTotalLiabilities(), base, ccy, fxMissing)))
                     .netWorth(scale(convert(s.getNetWorth(), base, ccy, fxMissing)))
+                    .breakdown(readBreakdown(s.getBreakdownJson(), base, ccy, fxMissing))
                     .build());
         }
 
@@ -342,5 +346,31 @@ public class WealthService {
             log.warn("Failed to serialise snapshot breakdown", e);
             return "{}";
         }
+    }
+
+    /**
+     * Deserialise a snapshot's per-class breakdown and convert each total from the
+     * snapshot's base currency into the view currency.
+     *
+     * <p>Returns {@code null} when the snapshot carries no readable breakdown — an
+     * older row written before breakdowns were captured, or unparseable JSON. That
+     * is deliberately distinct from an empty map: absent means "unknown, skip this
+     * point", whereas a present map simply omits classes that were worth zero.
+     */
+    private Map<String, BigDecimal> readBreakdown(String json, String base, String ccy, boolean[] fxMissing) {
+        if (json == null || json.isBlank()) return null;
+        Map<String, BigDecimal> raw;
+        try {
+            raw = objectMapper.readValue(json, new TypeReference<Map<String, BigDecimal>>() {});
+        } catch (Exception e) {
+            log.warn("Failed to read snapshot breakdown '{}' — charting it as unknown", json, e);
+            return null;
+        }
+        if (raw == null) return null;
+        Map<String, BigDecimal> out = new LinkedHashMap<>();
+        for (Map.Entry<String, BigDecimal> e : raw.entrySet()) {
+            out.put(e.getKey(), scale(convert(e.getValue(), base, ccy, fxMissing)));
+        }
+        return out;
     }
 }
