@@ -17,6 +17,13 @@ import static java.util.Objects.isNull;
 public class DateUtil {
 
     private static final String DISPLAY_DATE_TIME = "dd-MM-yyyy";
+    // Lenient on zero-padding, like the SimpleDateFormat parse below, but thread-safe.
+    private static final DateTimeFormatter TRANSACTION_DATE = DateTimeFormatter.ofPattern("d-M-yyyy");
+
+    /** A transaction's calendar date (its dd-MM-yyyy string) — timezone-free, unlike transactionDateTime. */
+    public static LocalDate parseTransactionDate(String date) {
+        return LocalDate.parse(date, TRANSACTION_DATE);
+    }
 
     public static Date getDateFromMillisString(String input) {
         long millisTime = Long.parseLong(input);
