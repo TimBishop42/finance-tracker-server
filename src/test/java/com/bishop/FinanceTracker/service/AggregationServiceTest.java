@@ -1,8 +1,13 @@
 package com.bishop.FinanceTracker.service;
 
+import com.bishop.FinanceTracker.model.domain.Category;
+import com.bishop.FinanceTracker.model.domain.CategoryValue;
+import com.bishop.FinanceTracker.model.domain.DisplayMonth;
 import com.bishop.FinanceTracker.model.domain.Transaction;
+import com.bishop.FinanceTracker.model.json.CategoryYearOverYearResponse;
 import com.bishop.FinanceTracker.model.json.MonthlySpendComparisonResponse;
 import com.bishop.FinanceTracker.model.json.CumulativeSpendResponse;
+import com.bishop.FinanceTracker.util.DateUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
@@ -11,10 +16,13 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -29,10 +37,24 @@ public class AggregationServiceTest {
     @Mock
     private TransactionService transactionService;
 
+    @Mock
+    private CategoryService categoryService;
+
     private Transaction createTransaction(LocalDate date, BigDecimal amount) {
         Transaction transaction = new Transaction();
         transaction.setTransactionDateTime(date.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli());
         transaction.setAmount(amount);
+        return transaction;
+    }
+
+    // Summary aggregation buckets by the localized transactionDate string, not
+    // the epoch, so both are set the way Transaction.from() would.
+    private Transaction createTransaction(LocalDate date, BigDecimal amount, String type, String category) {
+        Transaction transaction = createTransaction(date, amount);
+        transaction.setTransactionDate(DateUtil.getLocalizedDateString(
+                transaction.getTransactionDateTime(), ZoneId.of("Australia/Sydney")));
+        transaction.setTransactionType(type);
+        transaction.setCategory(category);
         return transaction;
     }
 
@@ -160,16 +182,15 @@ public class AggregationServiceTest {
         
         // Verify
         List<String> actualValues = response.getCumulativeValues();
-        assertEquals(now.getDayOfMonth(), actualValues.size(), "Should have one value per day of the month");
-        
-        // Check first 3 days have correct values
-        assertEquals("150.00", actualValues.get(0), "Day 1 should be sum of both transactions");
-        assertEquals("350.00", actualValues.get(1), "Day 2 should include previous day's total");
-        assertEquals("425.50", actualValues.get(2), "Day 3 should include previous day's total");
-        
-        // Check remaining days maintain the last total
-        for (int i = 3; i < actualValues.size(); i++) {
-            assertEquals("425.50", actualValues.get(i), "Remaining days should maintain the last total");
+        assertEquals(now.getDayOfMonth(), actualValues.size(), "Should have one value per elapsed day of the month");
+
+        // The current month only runs to today, so on the 1st/2nd the later
+        // (future-dated) transactions are excluded and fewer days are returned.
+        // Days 1-3 accumulate; every later day holds the day-3 total.
+        String[] expectedByDay = {"150.00", "350.00", "425.50"};
+        for (int i = 0; i < actualValues.size(); i++) {
+            assertEquals(expectedByDay[Math.min(i, expectedByDay.length - 1)], actualValues.get(i),
+                "Day " + (i + 1) + " cumulative total");
         }
     }
     
@@ -349,5 +370,70 @@ public class AggregationServiceTest {
         // Check first and last days
         assertEquals("100.00", actualValues.get(0), "Day 1 should be first transaction");
         assertEquals("300.00", actualValues.get(29), "Day 30 should include both transactions");
+    }
+
+    @Test
+    void summaryMonthsExcludeIncomeAndNeutralFromSpendAndCategories() {
+        // Mid-month so the Sydney-localized date can't roll into another month.
+        LocalDate midMonth = LocalDate.now().withDayOfMonth(15);
+
+        when(categoryService.getAllCategories()).thenReturn(Arrays.asList(
+            Category.builder().categoryName("Groceries").build(),
+            Category.builder().categoryName("Transfer").build()));
+        when(transactionService.getAllSinceNMonthsAgo(1)).thenReturn(Arrays.asList(
+            createTransaction(midMonth, new BigDecimal("100.00"), "EXPENSE", "Groceries"),
+            createTransaction(midMonth, new BigDecimal("50.00"), null, "Groceries"), // legacy row = expense
+            createTransaction(midMonth, new BigDecimal("5000.00"), "INCOME", "Groceries"),
+            createTransaction(midMonth, new BigDecimal("2000.00"), "NEUTRAL", "Transfer")));
+
+        List<DisplayMonth> months = aggregationService.aggregateDisplayMonths(1);
+
+        assertEquals(1, months.size());
+        DisplayMonth month = months.get(0);
+        Map<String, Double> byCategory = month.getCategoryValues().stream()
+            .collect(Collectors.toMap(CategoryValue::getCategory, CategoryValue::getValue));
+        assertEquals(150.0, byCategory.get("Groceries"), "income must not land in its category");
+        assertEquals(0.0, byCategory.get("Transfer"), "neutral must not land in its category");
+        assertEquals(150.0, month.getTotalMonthlySpend());
+        assertEquals(5000.0, month.getTotalMonthlyIncome(), "neutral must not count as income");
+    }
+
+    @Test
+    void summaryMonthsIncludeIncomeOnlyMonth() {
+        LocalDate midMonth = LocalDate.now().withDayOfMonth(15);
+
+        when(categoryService.getAllCategories()).thenReturn(Collections.singletonList(
+            Category.builder().categoryName("Groceries").build()));
+        when(transactionService.getAllSinceNMonthsAgo(1)).thenReturn(Collections.singletonList(
+            createTransaction(midMonth, new BigDecimal("5000.00"), "INCOME", "Groceries")));
+
+        List<DisplayMonth> months = aggregationService.aggregateDisplayMonths(1);
+
+        assertEquals(1, months.size());
+        assertEquals(0.0, months.get(0).getTotalMonthlySpend());
+        assertEquals(5000.0, months.get(0).getTotalMonthlyIncome());
+    }
+
+    @Test
+    void categoryYearOverYearCountsOnlyExpenses() {
+        LocalDate today = LocalDate.now();
+        LocalDate lastYear = today.minusYears(1);
+
+        when(transactionService.getAllSinceStartOfLastYear()).thenReturn(Arrays.asList(
+            createTransaction(today, new BigDecimal("100.00"), "EXPENSE", "Groceries"),
+            createTransaction(today, new BigDecimal("5000.00"), "INCOME", "Groceries"),
+            createTransaction(today, new BigDecimal("2000.00"), "NEUTRAL", "Transfer"),
+            createTransaction(lastYear, new BigDecimal("80.00"), "EXPENSE", "Groceries"),
+            createTransaction(lastYear, new BigDecimal("4000.00"), "INCOME", "Groceries")));
+
+        CategoryYearOverYearResponse response = aggregationService.getCategoryYearOverYear();
+
+        assertEquals(1, response.getCategories().size(), "neutral-only category must not appear");
+        CategoryYearOverYearResponse.CategoryRow groceries = response.getCategories().get(0);
+        assertEquals("Groceries", groceries.getCategory());
+        assertEquals(100.0, groceries.getThisYear());
+        assertEquals(80.0, groceries.getLastYear());
+        assertEquals(100.0, response.getThisYearTotal());
+        assertEquals(80.0, response.getLastYearTotal());
     }
 }

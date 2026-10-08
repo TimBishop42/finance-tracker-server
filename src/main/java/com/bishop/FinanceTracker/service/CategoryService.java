@@ -81,13 +81,7 @@ public class CategoryService {
 
     @Transactional
     public void deleteCategory(CategoryRequest request) {
-        Set<ConstraintViolation<CategoryRequest>> violations = validator.validate(request);
-        if (!violations.isEmpty()) {
-            throw new IllegalArgumentException("Invalid request: " + violations.stream()
-                    .map(ConstraintViolation::getMessage)
-                    .collect(Collectors.joining(", ")));
-        }
-
+        validate(request);
         String categoryName = request.getCategoryName();
         if (!categoryRepository.existsById(categoryName)) {
             throw new IllegalArgumentException("Category not found: " + categoryName);
@@ -96,5 +90,27 @@ public class CategoryService {
         categoryRepository.deleteById(categoryName);
         categoryCache.invalidate(categoryName);
         log.info("Successfully deleted category: {}", categoryName);
+    }
+
+    /** Set (or clear, when monthlyBudget is null) a category's monthly budget. */
+    @Transactional
+    public Category setBudget(CategoryRequest request) {
+        validate(request);
+        Category category = categoryRepository.findById(request.getCategoryName())
+                .orElseThrow(() -> new IllegalArgumentException("Category not found: " + request.getCategoryName()));
+        category.setMonthlyBudget(request.getMonthlyBudget());
+        Category saved = categoryRepository.save(category);
+        categoryCache.put(saved.getCategoryName(), saved);
+        log.info("Set monthly budget for category {} to {}", saved.getCategoryName(), saved.getMonthlyBudget());
+        return saved;
+    }
+
+    private void validate(CategoryRequest request) {
+        Set<ConstraintViolation<CategoryRequest>> violations = validator.validate(request);
+        if (!violations.isEmpty()) {
+            throw new IllegalArgumentException("Invalid request: " + violations.stream()
+                    .map(ConstraintViolation::getMessage)
+                    .collect(Collectors.joining(", ")));
+        }
     }
 }

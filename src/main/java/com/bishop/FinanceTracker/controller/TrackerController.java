@@ -99,6 +99,16 @@ public class TrackerController {
         }
     }
 
+    @PostMapping("/set-category-budget")
+    public Mono<ResponseEntity<?>> setCategoryBudget(@RequestBody CategoryRequest request) {
+        log.info("Received request to set budget for category: {}", request.getCategoryName());
+        try {
+            return Mono.just(ResponseEntity.ok(categoryService.setBudget(request)));
+        } catch (IllegalArgumentException e) {
+            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
+        }
+    }
+
     @PutMapping("/update-transaction")
     public Mono<ResponseEntity> updateTransaction(@RequestBody TransactionUpdateRequest request) {
         log.info("Received request to update transaction: {}", request.getTransactionId());
