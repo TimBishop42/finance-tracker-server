@@ -91,33 +91,20 @@ public class TrackerController {
     @PostMapping("/delete-category")
     public Mono<ResponseEntity<String>> deleteCategory(@RequestBody CategoryRequest request) {
         log.info("Received request to delete category: {}", request.getCategoryName());
-        try {
-            categoryService.deleteCategory(request);
-            return Mono.just(ResponseEntity.ok("Category deleted successfully"));
-        } catch (IllegalArgumentException e) {
-            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
-        }
+        categoryService.deleteCategory(request);
+        return Mono.just(ResponseEntity.ok("Category deleted successfully"));
     }
 
     @PostMapping("/set-category-budget")
-    public Mono<ResponseEntity<?>> setCategoryBudget(@RequestBody CategoryRequest request) {
+    public Mono<ResponseEntity<Category>> setCategoryBudget(@RequestBody CategoryRequest request) {
         log.info("Received request to set budget for category: {}", request.getCategoryName());
-        try {
-            return Mono.just(ResponseEntity.ok(categoryService.setBudget(request)));
-        } catch (IllegalArgumentException e) {
-            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
-        }
+        return Mono.just(ResponseEntity.ok(categoryService.setBudget(request)));
     }
 
     @PutMapping("/update-transaction")
     public Mono<ResponseEntity> updateTransaction(@RequestBody TransactionUpdateRequest request) {
         log.info("Received request to update transaction: {}", request.getTransactionId());
-        try {
-            return Mono.just(ResponseEntity.ok(transactionService.updateTransaction(request)));
-        } catch (IllegalArgumentException e) {
-            log.warn("Rejected transaction update: {}", e.getMessage());
-            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
-        }
+        return Mono.just(ResponseEntity.ok(transactionService.updateTransaction(request)));
     }
 
     @PostMapping("/recategorise-merchant")
@@ -125,36 +112,21 @@ public class TrackerController {
         String businessName = body.get("businessName");
         String category = body.get("category");
         log.info("Received request to recategorise merchant '{}' to '{}'", businessName, category);
-        try {
-            int updated = transactionService.recategoriseMerchant(businessName, category);
-            return Mono.just(ResponseEntity.ok(Map.of("updated", updated)));
-        } catch (IllegalArgumentException e) {
-            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
-        }
+        int updated = transactionService.recategoriseMerchant(businessName, category);
+        return Mono.just(ResponseEntity.ok(Map.of("updated", updated)));
     }
 
     @PostMapping("/delete-transaction")
     public Mono<ResponseEntity<String>> deleteTransaction(@RequestBody TransactionDeleteRequest request) {
         log.info("Received request to delete transaction: {}", request.getTransactionId());
-        try {
-            transactionService.deleteTransaction(request);
-            return Mono.just(ResponseEntity.ok("Transaction deleted successfully"));
-        } catch (IllegalArgumentException e) {
-            return Mono.just(ResponseEntity.badRequest().body(e.getMessage()));
-        }
+        transactionService.deleteTransaction(request);
+        return Mono.just(ResponseEntity.ok("Transaction deleted successfully"));
     }
 
     @GetMapping("/monthly-spend-comparison")
     public ResponseEntity<MonthlySpendComparisonResponse> getMonthlySpendComparison() {
         log.info("Received request for monthly spend comparison");
-        try {
-            MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
-            log.info("Successfully retrieved monthly spend comparison");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error retrieving monthly spend comparison", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(aggregationService.getMonthlySpendComparison());
     }
 
     @GetMapping("/get-cumulative-spend")
@@ -167,47 +139,20 @@ public class TrackerController {
         } else {
             log.info("Received request for cumulative spend data for current month");
         }
-        
-        try {
-            CumulativeSpendResponse response = aggregationService.getCumulativeSpend(month, year);
-            log.info("Successfully retrieved cumulative spend data");
-            return ResponseEntity.ok(response);
-        } catch (IllegalArgumentException e) {
-            log.warn("Invalid request parameters: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            log.error("Error retrieving cumulative spend data", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(aggregationService.getCumulativeSpend(month, year));
     }
 
     @GetMapping("/get-max-spend-value")
     public ResponseEntity<BigDecimal> getMaxSpendValue() {
         log.info("Received request for max spend value");
-        try {
-            BigDecimal value = userSettingsService.getMaxSpendValue();
-            log.info("Successfully retrieved max spend value: {}", value);
-            return ResponseEntity.ok(value);
-        } catch (Exception e) {
-            log.error("Error retrieving max spend value", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(userSettingsService.getMaxSpendValue());
     }
 
     @PostMapping("/set-max-spend-value")
     public ResponseEntity<Void> setMaxSpendValue(@RequestBody BigDecimal maxSpendValue) {
         log.info("Received request to set max spend value: {}", maxSpendValue);
-        try {
-            userSettingsService.setMaxSpendValue(maxSpendValue);
-            log.info("Successfully set max spend value");
-            return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException e) {
-            log.error("Invalid max spend value: {}", e.getMessage());
-            return ResponseEntity.badRequest().build();
-        } catch (Exception e) {
-            log.error("Error setting max spend value", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        userSettingsService.setMaxSpendValue(maxSpendValue);
+        return ResponseEntity.ok().build();
     }
 
     @GetMapping("/excluded-merchants")
@@ -266,18 +211,14 @@ public class TrackerController {
         if (date == null || String.valueOf(date).isBlank() || amount == null) {
             return ResponseEntity.badRequest().build();
         }
-        try {
-            BigDecimal value = new BigDecimal(String.valueOf(amount));
-            Object note = body.get("note");
-            SalaryEntry entry = SalaryEntry.builder()
-                    .effectiveDate(String.valueOf(date).trim())
-                    .amount(value)
-                    .note(note == null ? "" : String.valueOf(note))
-                    .build();
-            return ResponseEntity.ok(salaryHistoryRepository.save(entry));
-        } catch (NumberFormatException e) {
-            return ResponseEntity.badRequest().build();
-        }
+        // A non-numeric amount throws NumberFormatException -> 400 via ApiExceptionHandler.
+        Object note = body.get("note");
+        SalaryEntry entry = SalaryEntry.builder()
+                .effectiveDate(String.valueOf(date).trim())
+                .amount(new BigDecimal(String.valueOf(amount)))
+                .note(note == null ? "" : String.valueOf(note))
+                .build();
+        return ResponseEntity.ok(salaryHistoryRepository.save(entry));
     }
 
     @DeleteMapping("/salary-history/{id}")
@@ -292,13 +233,7 @@ public class TrackerController {
     @GetMapping("/category-year-over-year")
     public ResponseEntity<CategoryYearOverYearResponse> getCategoryYearOverYear() {
         log.info("Received request for category year-over-year comparison");
-        try {
-            CategoryYearOverYearResponse response = aggregationService.getCategoryYearOverYear();
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Error retrieving category year-over-year data", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
+        return ResponseEntity.ok(aggregationService.getCategoryYearOverYear());
     }
 
     @PostMapping("/train-model")

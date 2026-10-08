@@ -75,10 +75,6 @@ public class CategoryService {
         return Optional.ofNullable(categoryCache.getIfPresent(categoryName));
     }
 
-    public List<Category> saveAll(List<Category> categories) {
-        return categoryRepository.saveAll(categories);
-    }
-
     @Transactional
     public void deleteCategory(CategoryRequest request) {
         validate(request);

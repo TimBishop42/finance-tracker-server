@@ -44,31 +44,12 @@ public class SubscriptionController {
 
     @PostMapping
     public ResponseEntity<?> create(@RequestBody SubscriptionRequest request) {
-        RecurringCandidate created;
-        try {
-            created = subscriptionService.create(request);
-        } catch (IllegalArgumentException e) {
-            log.warn("Rejected subscription create: {}", e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-        // Backfill against existing history so already-paid periods show immediately.
-        try {
-            return ResponseEntity.ok(
-                    subscriptionService.backfillFromHistory(created.getSubscriptionId(), transactionService.getAll()));
-        } catch (Exception e) {
-            log.error("Backfill failed for subscription {}", created.getSubscriptionId(), e);
-            return ResponseEntity.ok(created);
-        }
+        return withBackfill(subscriptionService.create(request));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<?> update(@PathVariable Long id, @RequestBody SubscriptionRequest request) {
-        try {
-            return ResponseEntity.ok(subscriptionService.update(id, request));
-        } catch (IllegalArgumentException e) {
-            log.warn("Rejected subscription update {}: {}", id, e.getMessage());
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(subscriptionService.update(id, request));
     }
 
     @DeleteMapping("/{id}")
@@ -86,11 +67,7 @@ public class SubscriptionController {
     public ResponseEntity<?> setPaid(@PathVariable Long id,
                                      @RequestParam String date,
                                      @RequestParam(defaultValue = "true") boolean paid) {
-        try {
-            return ResponseEntity.ok(subscriptionService.setPaid(id, date, paid));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(subscriptionService.setPaid(id, date, paid));
     }
 
     /** Replace the set of transactions manually linked to a commitment (§2A.5). */
@@ -107,29 +84,13 @@ public class SubscriptionController {
                 }
             }
         }
-        try {
-            return ResponseEntity.ok(subscriptionService.setLinkedTransactions(id, desired, transactionService.getAll()));
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
+        return ResponseEntity.ok(subscriptionService.setLinkedTransactions(id, desired, transactionService.getAll()));
     }
 
     /** Promote a detected recurring candidate into the unified table (§2A.4.2). */
     @PostMapping("/confirm")
     public ResponseEntity<?> confirm(@RequestBody RecurringCandidate candidate) {
-        RecurringCandidate created;
-        try {
-            created = subscriptionService.confirmFromDetection(candidate);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
-        }
-        try {
-            return ResponseEntity.ok(
-                    subscriptionService.backfillFromHistory(created.getSubscriptionId(), transactionService.getAll()));
-        } catch (Exception e) {
-            log.error("Backfill failed for confirmed subscription {}", created.getSubscriptionId(), e);
-            return ResponseEntity.ok(created);
-        }
+        return withBackfill(subscriptionService.confirmFromDetection(candidate));
     }
 
     @GetMapping("/budget")
@@ -141,11 +102,21 @@ public class SubscriptionController {
     public ResponseEntity<?> setBudget(@RequestBody Map<String, Object> body) {
         Object value = body.get("budget");
         if (value == null) return ResponseEntity.badRequest().body("budget is required");
+        userSettingsService.setSubscriptionBudget(new BigDecimal(String.valueOf(value)));
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Backfill a new commitment against existing history so already-paid periods
+     * show immediately. Best-effort: on failure the commitment is still returned.
+     */
+    private ResponseEntity<RecurringCandidate> withBackfill(RecurringCandidate created) {
         try {
-            userSettingsService.setSubscriptionBudget(new BigDecimal(String.valueOf(value)));
-            return ResponseEntity.ok().build();
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            return ResponseEntity.ok(
+                    subscriptionService.backfillFromHistory(created.getSubscriptionId(), transactionService.getAll()));
+        } catch (Exception e) {
+            log.error("Backfill failed for subscription {}", created.getSubscriptionId(), e);
+            return ResponseEntity.ok(created);
         }
     }
 }
