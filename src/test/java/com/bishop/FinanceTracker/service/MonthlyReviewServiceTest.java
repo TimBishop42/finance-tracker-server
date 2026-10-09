@@ -62,7 +62,8 @@ class MonthlyReviewServiceTest {
         subscriptions = mock(SubscriptionRepository.class);
         priceHistory = mock(SubscriptionPriceHistoryRepository.class);
 
-        service = new MonthlyReviewService(transactionService, categoryService, settings,
+        service = new MonthlyReviewService(transactionService,
+                new AggregationService(transactionService, categoryService, settings), categoryService, settings,
                 new HeuristicMerchantNormalizer(), subscriptions, priceHistory);
     }
 

@@ -1,39 +1,40 @@
 package com.bishop.FinanceTracker.util;
 
-import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
 
-import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAdjusters;
-import java.util.Calendar;
-import java.util.Date;
 
 import static java.util.Objects.isNull;
 
 @Slf4j
 public class DateUtil {
 
+    /** The household's timezone: transaction calendar dates and "today" are both in it. */
+    public static final ZoneId APP_ZONE = ZoneId.of("Australia/Sydney");
+
     private static final String DISPLAY_DATE_TIME = "dd-MM-yyyy";
-    // Lenient on zero-padding, like the SimpleDateFormat parse below, but thread-safe.
+    // Lenient on zero-padding; thread-safe.
     private static final DateTimeFormatter TRANSACTION_DATE = DateTimeFormatter.ofPattern("d-M-yyyy");
 
-    /** A transaction's calendar date (its dd-MM-yyyy string) — timezone-free, unlike transactionDateTime. */
+    /**
+     * A transaction's calendar date (its dd-MM-yyyy string, written in APP_ZONE) —
+     * the source of truth for which day/month a transaction belongs to. Bucketing
+     * by transactionDateTime instead shifts dates: the UI sends local midnight,
+     * which is the previous day in UTC.
+     */
     public static LocalDate parseTransactionDate(String date) {
         return LocalDate.parse(date, TRANSACTION_DATE);
     }
 
-    public static Date getDateFromMillisString(String input) {
-        long millisTime = Long.parseLong(input);
-        return new Date(millisTime);
-    }
-
-    @SneakyThrows
-    public static Date getDateFromDateString(String dateString) {
-        SimpleDateFormat sdf = new SimpleDateFormat(DISPLAY_DATE_TIME);
-        return sdf.parse(dateString);
+    /** As {@link #parseTransactionDate}, but null (and logged) for a malformed value. */
+    public static LocalDate tryParseTransactionDate(String date) {
+        try {
+            return parseTransactionDate(date);
+        } catch (RuntimeException e) {
+            log.warn("Unparseable transaction date '{}'", date);
+            return null;
+        }
     }
 
     public static String getLocalizedDateString(Long epochTime, ZoneId zoneId) {
@@ -46,61 +47,13 @@ public class DateUtil {
         return formatter.format(ldt);
     }
 
-    public static Month getMonthFromStringDate(String date) {
-        Calendar tDate = Calendar.getInstance();
-        tDate.setTime(getDateFromDateString(date));
-        return Month.of(tDate.get(Calendar.MONTH) + 1);
-    }
-
-    public static int getYearFromStringDate(String transactionDate) {
-        Calendar tDate = Calendar.getInstance();
-        tDate.setTime(getDateFromDateString(transactionDate));
-        return tDate.get(Calendar.YEAR);
-    }
-
-    public static Long getEpochMilliOfCurrentYear() {
-
-        // Create a LocalDateTime representing the start of the current year
-        LocalDateTime startOfYear = LocalDateTime.of
-                (LocalDateTime.now().getYear(), 1, 1, 0, 0, 0);
-
-        // Convert the LocalDateTime to ZonedDateTime at UTC
-        ZonedDateTime startOfYearUTC = startOfYear.atZone(ZoneOffset.UTC);
-
-        // Get the epoch milliseconds
-        return startOfYearUTC.toInstant().toEpochMilli();
-    }
-
     public static long getRecentMonthStartEpochMilli() {
-        LocalDateTime now = LocalDateTime.now();
-
-        // Get the first day of the current month at midnight
-        LocalDateTime firstDayOfCurrentMonth = now.with(TemporalAdjusters.firstDayOfMonth()).truncatedTo(ChronoUnit.DAYS);
-
-        // Convert to ZonedDateTime using the system default time zone
-        ZonedDateTime zonedDateTime = firstDayOfCurrentMonth.atZone(ZoneId.systemDefault());
-
-        // Convert to epoch milliseconds
-        return zonedDateTime.toInstant().toEpochMilli();
+        return getNMonthsAgoStartEpochMilli(0);
     }
 
-    public static long getFirstDayOfYearEpochMilli() {
-        LocalDate now = LocalDate.now();
-
-        LocalDate firstDayOfYear = now.withDayOfYear(1);
-
-        ZonedDateTime startOfDay = firstDayOfYear.atStartOfDay(ZoneId.systemDefault());
-
-        return startOfDay.toInstant().toEpochMilli();
-    }
-
-    public static long getFirstDayOfLastYearEpochMilli() {
-        LocalDate firstDayOfLastYear = LocalDate.now().minusYears(1).withDayOfYear(1);
-        return firstDayOfLastYear.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
-    }
-
+    /** Epoch of APP_ZONE midnight on the 1st, {@code months} months ago — matches how the UI stamps dates. */
     public static long getNMonthsAgoStartEpochMilli(int months) {
-        LocalDate cutoff = LocalDate.now().minusMonths(months).withDayOfMonth(1);
-        return cutoff.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli();
+        LocalDate cutoff = LocalDate.now(APP_ZONE).minusMonths(months).withDayOfMonth(1);
+        return cutoff.atStartOfDay(APP_ZONE).toInstant().toEpochMilli();
     }
 }

@@ -16,8 +16,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
+import java.time.YearMonth;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -40,19 +39,19 @@ public class AggregationServiceTest {
     @Mock
     private CategoryService categoryService;
 
+    // Aggregations bucket by the localized transactionDate string, not the epoch,
+    // so both are set the way Transaction.from() would (UI sends local midnight).
     private Transaction createTransaction(LocalDate date, BigDecimal amount) {
         Transaction transaction = new Transaction();
-        transaction.setTransactionDateTime(date.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli());
+        transaction.setTransactionDateTime(date.atStartOfDay(DateUtil.APP_ZONE).toInstant().toEpochMilli());
+        transaction.setTransactionDate(DateUtil.getLocalizedDateString(
+                transaction.getTransactionDateTime(), DateUtil.APP_ZONE));
         transaction.setAmount(amount);
         return transaction;
     }
 
-    // Summary aggregation buckets by the localized transactionDate string, not
-    // the epoch, so both are set the way Transaction.from() would.
     private Transaction createTransaction(LocalDate date, BigDecimal amount, String type, String category) {
         Transaction transaction = createTransaction(date, amount);
-        transaction.setTransactionDate(DateUtil.getLocalizedDateString(
-                transaction.getTransactionDateTime(), ZoneId.of("Australia/Sydney")));
         transaction.setTransactionType(type);
         transaction.setCategory(category);
         return transaction;
@@ -61,7 +60,7 @@ public class AggregationServiceTest {
     @Test
     void testGetMonthlySpendComparison() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         LocalDate priorMonthStart = currentMonthStart.minusMonths(1);
         
@@ -79,7 +78,7 @@ public class AggregationServiceTest {
             createTransaction(priorMonthStart.plusDays(dayToUse - 1), new BigDecimal("250.00")) // Day 1 or 2
         );
 
-        when(transactionService.getAllInRecentYear()).thenReturn(
+        when(transactionService.getAll()).thenReturn(
             Arrays.asList(
                 currentMonthTransactions.get(0),
                 currentMonthTransactions.get(1),
@@ -99,7 +98,7 @@ public class AggregationServiceTest {
 
     @Test
     void spendExcludesIncomeAndNeutralTransactions() {
-        LocalDate currentMonthStart = LocalDate.now().withDayOfMonth(1);
+        LocalDate currentMonthStart = LocalDate.now(DateUtil.APP_ZONE).withDayOfMonth(1);
 
         Transaction expense = createTransaction(currentMonthStart, new BigDecimal("100.00"));
         Transaction income = createTransaction(currentMonthStart, new BigDecimal("5000.00"));
@@ -107,7 +106,7 @@ public class AggregationServiceTest {
         Transaction neutral = createTransaction(currentMonthStart, new BigDecimal("2000.00"));
         neutral.setTransactionType("NEUTRAL");
 
-        when(transactionService.getAllInRecentYear())
+        when(transactionService.getAll())
             .thenReturn(Arrays.asList(expense, income, neutral));
 
         MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
@@ -119,7 +118,7 @@ public class AggregationServiceTest {
     @Test
     void testGetMonthlySpendComparisonWithZeroPriorMonth() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         
         // Create test transactions - only current month
@@ -127,7 +126,7 @@ public class AggregationServiceTest {
             createTransaction(currentMonthStart.plusDays(1), new BigDecimal("100.00"))
         );
 
-        when(transactionService.getAllInRecentYear()).thenReturn(currentMonthTransactions);
+        when(transactionService.getAll()).thenReturn(currentMonthTransactions);
 
         // Execute
         MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
@@ -141,7 +140,7 @@ public class AggregationServiceTest {
     @Test
     void testGetMonthlySpendComparisonWithZeroCurrentMonth() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         LocalDate priorMonthStart = currentMonthStart.minusMonths(1);
         
@@ -150,7 +149,7 @@ public class AggregationServiceTest {
             createTransaction(priorMonthStart.plusDays(1), new BigDecimal("100.00"))
         );
 
-        when(transactionService.getAllInRecentYear()).thenReturn(priorMonthTransactions);
+        when(transactionService.getAll()).thenReturn(priorMonthTransactions);
 
         // Execute
         MonthlySpendComparisonResponse response = aggregationService.getMonthlySpendComparison();
@@ -164,7 +163,7 @@ public class AggregationServiceTest {
     @Test
     void testGetCumulativeSpend() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         
         // Create test transactions for different days
@@ -175,7 +174,7 @@ public class AggregationServiceTest {
             createTransaction(currentMonthStart.plusDays(2), new BigDecimal("75.50"))
         );
         
-        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        when(transactionService.getAll()).thenReturn(transactions);
         
         // Execute
         CumulativeSpendResponse response = aggregationService.getCumulativeSpend();
@@ -197,10 +196,10 @@ public class AggregationServiceTest {
     @Test
     void testGetCumulativeSpendWithNoTransactions() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         
         // Setup test data
-        when(transactionService.getAllInRecentYear()).thenReturn(Collections.emptyList());
+        when(transactionService.getAll()).thenReturn(Collections.emptyList());
         
         // Execute
         CumulativeSpendResponse response = aggregationService.getCumulativeSpend();
@@ -218,7 +217,7 @@ public class AggregationServiceTest {
     @Test
     void testGetCumulativeSpendWithGaps() {
         // Use current date to avoid mocking issues
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         
         // Skip test if we're too early in the month (need at least 5 days)
@@ -233,7 +232,7 @@ public class AggregationServiceTest {
             createTransaction(currentMonthStart.plusDays(4), new BigDecimal("300.00"))
         );
         
-        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        when(transactionService.getAll()).thenReturn(transactions);
         
         // Execute
         CumulativeSpendResponse response = aggregationService.getCumulativeSpend();
@@ -265,7 +264,7 @@ public class AggregationServiceTest {
             createTransaction(targetDate.plusDays(2), new BigDecimal("75.50"))
         );
         
-        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        when(transactionService.getAll()).thenReturn(transactions);
         
         // Execute
         CumulativeSpendResponse response = aggregationService.getCumulativeSpend(12, 2023);
@@ -331,7 +330,7 @@ public class AggregationServiceTest {
     @Test
     void testGetCumulativeSpendWithCurrentMonth() {
         // Test that current month behavior is the same whether called with or without parameters
-        LocalDate now = LocalDate.now();
+        LocalDate now = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate currentMonthStart = now.withDayOfMonth(1);
         
         List<Transaction> transactions = Arrays.asList(
@@ -339,7 +338,7 @@ public class AggregationServiceTest {
             createTransaction(currentMonthStart.plusDays(1), new BigDecimal("200.00"))
         );
         
-        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        when(transactionService.getAll()).thenReturn(transactions);
         
         // Execute both versions
         CumulativeSpendResponse responseNoParams = aggregationService.getCumulativeSpend();
@@ -358,7 +357,7 @@ public class AggregationServiceTest {
             createTransaction(pastMonth.plusDays(29), new BigDecimal("200.00")) // Last day of November
         );
         
-        when(transactionService.getAllInRecentYear()).thenReturn(transactions);
+        when(transactionService.getAll()).thenReturn(transactions);
         
         // Execute
         CumulativeSpendResponse response = aggregationService.getCumulativeSpend(11, 2023);
@@ -373,9 +372,30 @@ public class AggregationServiceTest {
     }
 
     @Test
+    void cumulativeSpendCoversMonthsBeforeTheCurrentYear() {
+        // Regression: this used to read only transactions since 1 Jan, so every
+        // January the dashboard's "prior month" (December) came back empty.
+        YearMonth lastDecember = YearMonth.of(LocalDate.now(DateUtil.APP_ZONE).getYear() - 1, 12);
+        when(transactionService.getAll()).thenReturn(List.of(
+            createTransaction(lastDecember.atDay(10), new BigDecimal("80.00"))));
+
+        assertEquals(new BigDecimal("80.00"), aggregationService.cumulativeSpend(lastDecember).get(30));
+    }
+
+    @Test
+    void firstOfMonthAtLocalMidnightCountsOnDayOneOfThatMonth() {
+        // Regression: local midnight on the 1st is the previous day in UTC, so the
+        // old epoch/UTC filtering put it on the last day of the prior month.
+        when(transactionService.getAll()).thenReturn(List.of(
+            createTransaction(LocalDate.of(2023, 11, 1), new BigDecimal("42.00"))));
+
+        assertEquals(new BigDecimal("42.00"), aggregationService.cumulativeSpend(YearMonth.of(2023, 11)).get(0));
+        assertEquals(new BigDecimal("0.00"), aggregationService.cumulativeSpend(YearMonth.of(2023, 10)).get(30));
+    }
+
+    @Test
     void summaryMonthsExcludeIncomeAndNeutralFromSpendAndCategories() {
-        // Mid-month so the Sydney-localized date can't roll into another month.
-        LocalDate midMonth = LocalDate.now().withDayOfMonth(15);
+        LocalDate midMonth = LocalDate.now(DateUtil.APP_ZONE).withDayOfMonth(15);
 
         when(categoryService.getAllCategories()).thenReturn(Arrays.asList(
             Category.builder().categoryName("Groceries").build(),
@@ -400,7 +420,7 @@ public class AggregationServiceTest {
 
     @Test
     void summaryMonthsIncludeIncomeOnlyMonth() {
-        LocalDate midMonth = LocalDate.now().withDayOfMonth(15);
+        LocalDate midMonth = LocalDate.now(DateUtil.APP_ZONE).withDayOfMonth(15);
 
         when(categoryService.getAllCategories()).thenReturn(Collections.singletonList(
             Category.builder().categoryName("Groceries").build()));
@@ -416,10 +436,10 @@ public class AggregationServiceTest {
 
     @Test
     void categoryYearOverYearCountsOnlyExpenses() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(DateUtil.APP_ZONE);
         LocalDate lastYear = today.minusYears(1);
 
-        when(transactionService.getAllSinceStartOfLastYear()).thenReturn(Arrays.asList(
+        when(transactionService.getAll()).thenReturn(Arrays.asList(
             createTransaction(today, new BigDecimal("100.00"), "EXPENSE", "Groceries"),
             createTransaction(today, new BigDecimal("5000.00"), "INCOME", "Groceries"),
             createTransaction(today, new BigDecimal("2000.00"), "NEUTRAL", "Transfer"),

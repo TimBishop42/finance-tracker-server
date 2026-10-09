@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 
 import jakarta.persistence.*;
 import java.math.BigDecimal;
-import java.time.ZoneId;
 
 @Data
 @Entity(name = "transactions")
@@ -54,7 +53,7 @@ public class Transaction {
                 .category(transactionJson.getCategory())
                 .amount(BigDecimal.valueOf(Double.parseDouble(transactionJson.getAmount())))
                 .transactionDateTime(transactionJson.getTransactionDate())
-                .transactionDate(DateUtil.getLocalizedDateString(transactionJson.getTransactionDate(), ZoneId.of("Australia/Sydney")))
+                .transactionDate(DateUtil.getLocalizedDateString(transactionJson.getTransactionDate(), DateUtil.APP_ZONE))
                 .comment(transactionJson.getComment())
                 .businessName(transactionJson.getBusinessName())
                 .essential(transactionJson.isEssential())

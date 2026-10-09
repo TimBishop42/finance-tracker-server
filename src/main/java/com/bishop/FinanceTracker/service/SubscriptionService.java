@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.service;
 
+import com.bishop.FinanceTracker.util.DateUtil;
 import com.bishop.FinanceTracker.model.domain.Subscription;
 import com.bishop.FinanceTracker.model.domain.SubscriptionPriceHistory;
 import com.bishop.FinanceTracker.model.domain.Transaction;
@@ -51,7 +52,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SubscriptionService {
 
-    private static final ZoneId ZONE = ZoneId.of("Australia/Sydney");
+    private static final ZoneId ZONE = DateUtil.APP_ZONE;
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final String EXPENSE = "EXPENSE";
 

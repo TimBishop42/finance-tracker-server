@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.service.notification;
 
+import com.bishop.FinanceTracker.util.DateUtil;
 import com.bishop.FinanceTracker.model.domain.NotifiedEvent;
 import com.bishop.FinanceTracker.model.domain.Subscription;
 import com.bishop.FinanceTracker.model.domain.SubscriptionPriceHistory;
@@ -35,7 +36,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class NotificationService {
 
-    private static final ZoneId ZONE = ZoneId.of("Australia/Sydney");
+    private static final ZoneId ZONE = DateUtil.APP_ZONE;
     private static final String CANCELLED = "cancelled";
     private static final String PAUSED = "paused";
     private static final String TRIAL = "trial";

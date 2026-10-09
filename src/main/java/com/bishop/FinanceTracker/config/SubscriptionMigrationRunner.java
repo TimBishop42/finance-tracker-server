@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.config;
 
+import com.bishop.FinanceTracker.util.DateUtil;
 import com.bishop.FinanceTracker.model.domain.ManualBill;
 import com.bishop.FinanceTracker.model.domain.Subscription;
 import com.bishop.FinanceTracker.model.domain.SubscriptionPriceHistory;
@@ -29,7 +30,7 @@ import java.time.format.DateTimeFormatter;
 @RequiredArgsConstructor
 public class SubscriptionMigrationRunner implements ApplicationRunner {
 
-    private static final ZoneId ZONE = ZoneId.of("Australia/Sydney");
+    private static final ZoneId ZONE = DateUtil.APP_ZONE;
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
 
     private final ManualBillRepository manualBillRepository;

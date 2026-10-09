@@ -10,19 +10,15 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
-import java.time.Month;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
-import java.time.temporal.ChronoUnit;
-import java.time.temporal.TemporalAdjusters;
-import java.util.*;
-import java.util.function.Function;
-import java.util.stream.Collectors;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZoneOffset;
+import java.time.Month;
+import java.time.YearMonth;
+import java.time.format.TextStyle;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Service
@@ -58,9 +54,11 @@ public class AggregationService {
         allTransactions.stream()
                 .filter(t -> isExpense(t) || isIncome(t))
                 .forEach(t -> {
+                    LocalDate date = DateUtil.tryParseTransactionDate(t.getTransactionDate());
+                    if (date == null) return;
                     MonthYearKey key = MonthYearKey.builder()
-                            .month(DateUtil.getMonthFromStringDate(t.getTransactionDate()).name())
-                            .year(DateUtil.getYearFromStringDate(t.getTransactionDate()))
+                            .month(date.getMonth().name())
+                            .year(date.getYear())
                             .build();
                     SummarizingMonth summarizingMonth = monthsMap.computeIfAbsent(key, k -> SummarizingMonth.builder()
                             .categoryValues(categoryService.getAllCategories().stream().map(c -> new CategoryValue(c.getCategoryName(), k.getMonth()))
@@ -92,130 +90,63 @@ public class AggregationService {
     }
 
     public HomeData homeData() {
-        long startTime = System.currentTimeMillis();
-        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
-
-        ZonedDateTime now = ZonedDateTime.now(ZoneId.of("UTC"));
-
-        ZonedDateTime firstDayOfLastMonth = now
-                .minusMonths(1)
-                .with(TemporalAdjusters.firstDayOfMonth())
-                .truncatedTo(ChronoUnit.DAYS);
-
-        ZonedDateTime firstDayOfCurrentMonth = now
-                .with(TemporalAdjusters.firstDayOfMonth())
-                .truncatedTo(ChronoUnit.DAYS);
-        ;
-
-        Double priorMonthAmount = allTransactions.stream()
-                .filter(AggregationService::isExpense)
-                .filter(t -> t.getTransactionDateTime() >= firstDayOfLastMonth.toInstant().toEpochMilli()
-                        && t.getTransactionDateTime() < firstDayOfCurrentMonth.toInstant().toEpochMilli())
-                .mapToDouble(t -> t.getAmount().doubleValue())
-                .sum();
-        log.info("Sum for prior month {}, prior month dateTime {}", priorMonthAmount, firstDayOfLastMonth);
-
-        Double currentMonthAmount = allTransactions.stream()
-                .filter(AggregationService::isExpense)
-                .filter(t -> t.getTransactionDateTime() >= firstDayOfCurrentMonth.toInstant().toEpochMilli())
-                .mapToDouble(t -> t.getAmount().doubleValue())
-                .sum();
-        log.info("Sum for current month {}, current month dateTime {}", currentMonthAmount, firstDayOfCurrentMonth);
-
+        YearMonth thisMonth = YearMonth.now(DateUtil.APP_ZONE);
+        double currentMonthAmount = last(cumulativeSpend(thisMonth)).doubleValue();
+        double priorMonthAmount = last(cumulativeSpend(thisMonth.minusMonths(1))).doubleValue();
         double budgetTarget = userSettingsService.getMaxSpendValue().doubleValue();
         HomeData homeResult = HomeData.builder()
                 .currentMonth(currentMonthAmount)
                 .priorMonth(priorMonthAmount)
                 .status(currentMonthAmount < budgetTarget ? "WITHIN BUDGET" : "OVER BUDGET")
                 .build();
-
-        log.info("Retrieved summarized value for home data in {} millis, data: {}",
-                System.currentTimeMillis() - startTime, homeResult);
-
+        log.info("Built home-assistant data: {}", homeResult);
         return homeResult;
     }
 
+    /** Month-to-date spend vs the prior month over the same number of days. */
     public MonthlySpendComparisonResponse getMonthlySpendComparison() {
-        log.info("Calculating monthly spend comparison");
+        LocalDate today = LocalDate.now(DateUtil.APP_ZONE);
+        YearMonth thisMonth = YearMonth.from(today);
+        BigDecimal currentMonthSpend = last(cumulativeSpend(thisMonth));
+        List<BigDecimal> prior = cumulativeSpend(thisMonth.minusMonths(1));
+        // A shorter prior month (e.g. Feb vs 31 Mar) is compared in full.
+        BigDecimal priorMonthSpend = prior.get(Math.min(today.getDayOfMonth(), prior.size()) - 1);
 
-        LocalDate now = LocalDate.now();
-        LocalDate startOfCurrentMonth = now.withDayOfMonth(1);
-        LocalDate startOfPriorMonth = startOfCurrentMonth.minusMonths(1);
-
-        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
-
-        // Get current month's spend
-        BigDecimal currentMonthSpend = allTransactions.stream()
-            .filter(AggregationService::isExpense)
-            .filter(t -> t.getTransactionDateTime() >= startOfCurrentMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
-                && t.getTransactionDateTime() <= now.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
-            .map(Transaction::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Get prior month's spend up to same day
-        LocalDate endOfPriorMonth = startOfPriorMonth.plusDays(now.getDayOfMonth() - 1);
-        LocalDate adjustedEndOfPriorMonth = endOfPriorMonth.isAfter(startOfPriorMonth.plusMonths(1).minusDays(1)) 
-            ? startOfPriorMonth.plusMonths(1).minusDays(1) 
-            : endOfPriorMonth;
-
-        BigDecimal priorMonthSpend = allTransactions.stream()
-            .filter(AggregationService::isExpense)
-            .filter(t -> t.getTransactionDateTime() >= startOfPriorMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
-                && t.getTransactionDateTime() <= adjustedEndOfPriorMonth.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
-            .map(Transaction::getAmount)
-            .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        // Calculate percentage change
         BigDecimal percentageChange;
-        if (priorMonthSpend.compareTo(BigDecimal.ZERO) == 0) {
-            percentageChange = currentMonthSpend.compareTo(BigDecimal.ZERO) > 0 ?
-                new BigDecimal("100.0") : BigDecimal.ZERO;
+        if (priorMonthSpend.signum() == 0) {
+            percentageChange = currentMonthSpend.signum() > 0 ? new BigDecimal("100.0") : BigDecimal.ZERO;
         } else {
             percentageChange = currentMonthSpend.subtract(priorMonthSpend)
-                .divide(priorMonthSpend, 4, RoundingMode.HALF_UP)
-                .multiply(new BigDecimal("100"));
+                    .divide(priorMonthSpend, 4, RoundingMode.HALF_UP)
+                    .multiply(new BigDecimal("100"));
         }
 
-        log.info("Monthly spend comparison calculated - Current: {}, Prior: {}, Change: {}%",
-            currentMonthSpend, priorMonthSpend, percentageChange);
-
+        log.info("Monthly spend comparison - Current: {}, Prior: {}, Change: {}%",
+                currentMonthSpend, priorMonthSpend, percentageChange);
         return new MonthlySpendComparisonResponse(
-            currentMonthSpend.setScale(2, RoundingMode.HALF_UP).toString(),
-            priorMonthSpend.setScale(2, RoundingMode.HALF_UP).toString(),
-            percentageChange.setScale(1, RoundingMode.HALF_UP).toString()
-        );
+                currentMonthSpend.toPlainString(),
+                priorMonthSpend.toPlainString(),
+                percentageChange.setScale(1, RoundingMode.HALF_UP).toString());
     }
 
     public CategoryYearOverYearResponse getCategoryYearOverYear() {
-        LocalDate today = LocalDate.now();
-        int currentYear = today.getYear();
-        int lastYear = currentYear - 1;
-
-        // Same calendar day last year — used as the cut-off so both windows cover identical elapsed days
+        LocalDate today = LocalDate.now(DateUtil.APP_ZONE);
+        // Same calendar day last year is the cut-off, so both windows cover identical elapsed days.
         LocalDate sameDayLastYear = today.minusYears(1);
 
-        long thisYearStart = LocalDate.of(currentYear, 1, 1)
-                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
-        long lastYearStart = LocalDate.of(lastYear, 1, 1)
-                .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli();
-        long lastYearEnd = sameDayLastYear.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli();
-        long now = today.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli();
-
-        List<Transaction> allTransactions = transactionService.getAllSinceStartOfLastYear();
-
-        Map<String, Double> thisYearByCategory = allTransactions.stream()
-                .filter(AggregationService::isExpense)
-                .filter(t -> t.getTransactionDateTime() >= thisYearStart && t.getTransactionDateTime() <= now)
-                .collect(Collectors.groupingBy(
-                        t -> t.getCategory() != null ? t.getCategory() : "Unknown",
-                        Collectors.summingDouble(t -> t.getAmount().doubleValue())));
-
-        Map<String, Double> lastYearByCategory = allTransactions.stream()
-                .filter(AggregationService::isExpense)
-                .filter(t -> t.getTransactionDateTime() >= lastYearStart && t.getTransactionDateTime() <= lastYearEnd)
-                .collect(Collectors.groupingBy(
-                        t -> t.getCategory() != null ? t.getCategory() : "Unknown",
-                        Collectors.summingDouble(t -> t.getAmount().doubleValue())));
+        Map<String, Double> thisYearByCategory = new HashMap<>();
+        Map<String, Double> lastYearByCategory = new HashMap<>();
+        for (Transaction t : transactionService.getAll()) {
+            if (!isExpense(t)) continue;
+            LocalDate date = DateUtil.tryParseTransactionDate(t.getTransactionDate());
+            if (date == null) continue;
+            Map<String, Double> bucket = date.getYear() == today.getYear() && !date.isAfter(today) ? thisYearByCategory
+                    : date.getYear() == sameDayLastYear.getYear() && !date.isAfter(sameDayLastYear) ? lastYearByCategory
+                    : null;
+            if (bucket != null) {
+                bucket.merge(t.getCategory() != null ? t.getCategory() : "Unknown", t.getAmount().doubleValue(), Double::sum);
+            }
+        }
 
         Set<String> allCategories = new HashSet<>();
         allCategories.addAll(thisYearByCategory.keySet());
@@ -242,7 +173,7 @@ public class AggregationService {
         double thisYearTotal = round2(rows.stream().mapToDouble(CategoryYearOverYearResponse.CategoryRow::getThisYear).sum());
         double lastYearTotal = round2(rows.stream().mapToDouble(CategoryYearOverYearResponse.CategoryRow::getLastYear).sum());
 
-        String period = String.format("Jan 1 – %s %d", today.getMonth().getDisplayName(java.time.format.TextStyle.SHORT, java.util.Locale.ENGLISH), today.getDayOfMonth());
+        String period = String.format("Jan 1 – %s %d", today.getMonth().getDisplayName(TextStyle.SHORT, Locale.ENGLISH), today.getDayOfMonth());
 
         log.info("Year-over-year comparison: thisYear={}, lastYear={}, categories={}", thisYearTotal, lastYearTotal, rows.size());
 
@@ -278,81 +209,48 @@ public class AggregationService {
     }
 
     public CumulativeSpendResponse getCumulativeSpend(Integer month, Integer year) {
-        // Validate input parameters
         if (month != null && year != null) {
-            // Validate month parameter
             if (month < 1 || month > 12) {
                 throw new IllegalArgumentException("Month must be between 1 and 12, got: " + month);
             }
-            
-            // Validate year parameter
             if (year < 1900 || year > 2100) {
                 throw new IllegalArgumentException("Year must be between 1900 and 2100, got: " + year);
             }
         } else if (month != null || year != null) {
-            // If only one parameter is provided, throw exception
             throw new IllegalArgumentException("Both month and year parameters must be provided together or not at all");
         }
-        
-        LocalDate now = LocalDate.now();
-        LocalDate targetDate;
-        
-        // If month and year are provided, use them; otherwise use current month
-        if (month != null && year != null) {
-            targetDate = LocalDate.of(year, month, 1);
-            log.info("Calculating cumulative spend for month {} year {}", month, year);
-        } else {
-            targetDate = now.withDayOfMonth(1);
-            log.info("Calculating cumulative spend for current month");
+        YearMonth target = month == null ? YearMonth.now(DateUtil.APP_ZONE) : YearMonth.of(year, month);
+        return new CumulativeSpendResponse(cumulativeSpend(target).stream().map(BigDecimal::toPlainString).toList());
+    }
+
+    /**
+     * Running expense total (to the cent) for each day of {@code month}, by calendar
+     * date. The in-progress month stops at today; other months run to their last day.
+     * The shared basis for the dashboard's cumulative chart, month-on-month
+     * comparison, home-assistant data and the monthly review.
+     */
+    public List<BigDecimal> cumulativeSpend(YearMonth month) {
+        LocalDate today = LocalDate.now(DateUtil.APP_ZONE);
+        int days = month.equals(YearMonth.from(today)) ? today.getDayOfMonth() : month.lengthOfMonth();
+        BigDecimal[] daily = new BigDecimal[days + 1];
+        Arrays.fill(daily, BigDecimal.ZERO);
+        for (Transaction t : transactionService.getAll()) {
+            if (!isExpense(t)) continue;
+            LocalDate date = DateUtil.tryParseTransactionDate(t.getTransactionDate());
+            if (date != null && YearMonth.from(date).equals(month) && date.getDayOfMonth() <= days) {
+                daily[date.getDayOfMonth()] = daily[date.getDayOfMonth()].add(t.getAmount());
+            }
         }
-
-        LocalDate startOfTargetMonth = targetDate.withDayOfMonth(1);
-        LocalDate endOfTargetMonth = targetDate.withDayOfMonth(targetDate.lengthOfMonth());
-        
-        // For current month, only go up to current day; for past months, go to end of month
-        LocalDate effectiveEndDate;
-        if (targetDate.getMonth() == now.getMonth() && targetDate.getYear() == now.getYear()) {
-            effectiveEndDate = now;
-        } else {
-            effectiveEndDate = endOfTargetMonth;
+        List<BigDecimal> running = new ArrayList<>(days);
+        BigDecimal total = BigDecimal.ZERO;
+        for (int day = 1; day <= days; day++) {
+            total = total.add(daily[day]);
+            running.add(total.setScale(2, RoundingMode.HALF_UP));
         }
-        
-        List<Transaction> allTransactions = transactionService.getAllInRecentYear();
-        
-        // Filter transactions for target month
-        List<Transaction> monthTransactions = allTransactions.stream()
-            .filter(AggregationService::isExpense)
-            .filter(t -> t.getTransactionDateTime() >= startOfTargetMonth.atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli()
-                && t.getTransactionDateTime() <= effectiveEndDate.atTime(LocalTime.MAX).toInstant(ZoneOffset.UTC).toEpochMilli())
-            .collect(Collectors.toList());
+        return running;
+    }
 
-        // Group transactions by day and calculate daily totals
-        Map<Integer, BigDecimal> dailyTotals = monthTransactions.stream()
-            .collect(Collectors.groupingBy(
-                t -> LocalDate.ofInstant(
-                    java.time.Instant.ofEpochMilli(t.getTransactionDateTime()),
-                    ZoneOffset.UTC
-                ).getDayOfMonth(),
-                Collectors.mapping(
-                    Transaction::getAmount,
-                    Collectors.reducing(BigDecimal.ZERO, BigDecimal::add)
-                )
-            ));
-
-        // Calculate cumulative totals for each day
-        List<String> cumulativeValues = new ArrayList<>();
-        BigDecimal runningTotal = BigDecimal.ZERO;
-
-        // For current month, only show up to current day; for past months, show all days
-        int daysToShow = effectiveEndDate.getDayOfMonth();
-        
-        for (int day = 1; day <= daysToShow; day++) {
-            runningTotal = runningTotal.add(dailyTotals.getOrDefault(day, BigDecimal.ZERO));
-            cumulativeValues.add(runningTotal.setScale(2, RoundingMode.HALF_UP).toString());
-        }
-
-        log.info("Calculated cumulative spend values for {}/{}: {}", month != null ? month : now.getMonthValue(), 
-                year != null ? year : now.getYear(), cumulativeValues);
-        return new CumulativeSpendResponse(cumulativeValues);
+    private static BigDecimal last(List<BigDecimal> values) {
+        return values.get(values.size() - 1);
     }
 }

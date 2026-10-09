@@ -1,5 +1,6 @@
 package com.bishop.FinanceTracker.service.recurring;
 
+import com.bishop.FinanceTracker.util.DateUtil;
 import com.bishop.FinanceTracker.model.domain.CustomMerchant;
 import com.bishop.FinanceTracker.model.domain.Transaction;
 import com.bishop.FinanceTracker.model.recurring.Cadence;
@@ -38,7 +39,7 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class StatisticalRecurringEngine implements RecurringDetectionEngine {
 
-    private static final ZoneId ZONE = ZoneId.of("Australia/Sydney");
+    private static final ZoneId ZONE = DateUtil.APP_ZONE;
     private static final DateTimeFormatter ISO = DateTimeFormatter.ISO_LOCAL_DATE;
 
     /** A group needs at least this many charges to be considered at all. */

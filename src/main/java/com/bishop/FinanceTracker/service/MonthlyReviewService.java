@@ -19,7 +19,6 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
-import java.time.ZoneId;
 import java.time.format.DateTimeParseException;
 import java.util.*;
 import java.util.function.Predicate;
@@ -46,9 +45,9 @@ public class MonthlyReviewService {
     private static final int NEW_MERCHANTS_LIMIT = 10;
     private static final String NO_MERCHANT = "(no merchant)";
     private static final BigDecimal ZERO = cents(BigDecimal.ZERO);
-    private static final ZoneId ZONE = ZoneId.of("Australia/Sydney");
 
     private final TransactionService transactionService;
+    private final AggregationService aggregationService;
     private final CategoryService categoryService;
     private final UserSettingsService userSettingsService;
     private final MerchantNormalizer merchantNormalizer;
@@ -103,21 +102,17 @@ public class MonthlyReviewService {
                         .map(d -> new TransactionRow(d.date(), d.tx().getBusinessName(), categoryOf(d), d.amount()))
                         .toList(),
                 subscriptionChanges(month),
-                new Cumulative(cumulative(month, byMonth), cumulative(month.minusMonths(1), byMonth)));
+                new Cumulative(aggregationService.cumulativeSpend(month),
+                        aggregationService.cumulativeSpend(month.minusMonths(1))));
 
         log.info("Built monthly review for {} in {} ms", month, System.currentTimeMillis() - start);
         return response;
     }
 
-    /** Null (and logged) for a row whose date can't be parsed, so one bad row can't sink the review. */
+    /** Null for a row whose date can't be parsed, so one bad row can't sink the review. */
     private Dated dated(Transaction t) {
-        try {
-            return new Dated(t, DateUtil.parseTransactionDate(t.getTransactionDate()),
-                    merchantNormalizer.normalize(t.getBusinessName()));
-        } catch (RuntimeException e) {
-            log.warn("Skipping transaction id={} with unparseable date '{}'", t.getTransactionId(), t.getTransactionDate());
-            return null;
-        }
+        LocalDate date = DateUtil.tryParseTransactionDate(t.getTransactionDate());
+        return date == null ? null : new Dated(t, date, merchantNormalizer.normalize(t.getBusinessName()));
     }
 
     private Totals totals(YearMonth month, List<YearMonth> priorMonths, Map<YearMonth, List<Dated>> byMonth) {
@@ -262,29 +257,11 @@ public class MonthlyReviewService {
                     .min(Comparator.naturalOrder());
             if (earliest.isPresent()) return earliest.get();
         }
-        return s.getCreateTime() == null ? null : LocalDate.ofInstant(Instant.ofEpochMilli(s.getCreateTime()), ZONE);
+        return s.getCreateTime() == null ? null : LocalDate.ofInstant(Instant.ofEpochMilli(s.getCreateTime()), DateUtil.APP_ZONE);
     }
 
     private static CommitmentRow commitment(Subscription s, LocalDate date) {
         return new CommitmentRow(s.getName(), s.getAmount(), s.getBillingCycle(), date);
-    }
-
-    /** Running spend for each day of the month, stopping at today for the in-progress month. */
-    private static List<BigDecimal> cumulative(YearMonth month, Map<YearMonth, List<Dated>> byMonth) {
-        LocalDate today = LocalDate.now(ZONE);
-        int days = month.equals(YearMonth.from(today)) ? today.getDayOfMonth() : month.lengthOfMonth();
-        BigDecimal[] daily = new BigDecimal[days + 1];
-        Arrays.fill(daily, BigDecimal.ZERO);
-        byMonth.getOrDefault(month, List.of()).stream()
-                .filter(d -> AggregationService.isExpense(d.tx()) && d.date().getDayOfMonth() <= days)
-                .forEach(d -> daily[d.date().getDayOfMonth()] = daily[d.date().getDayOfMonth()].add(d.amount()));
-        List<BigDecimal> running = new ArrayList<>(days);
-        BigDecimal total = BigDecimal.ZERO;
-        for (int day = 1; day <= days; day++) {
-            total = total.add(daily[day]);
-            running.add(cents(total));
-        }
-        return running;
     }
 
     private static Map<String, BigDecimal> spendByCategory(List<Dated> txs) {
