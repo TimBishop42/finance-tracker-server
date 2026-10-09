@@ -15,6 +15,7 @@ import com.bishop.FinanceTracker.model.wealth.WealthItemView;
 import com.bishop.FinanceTracker.repository.KidPortfolioSnapshotRepository;
 import com.bishop.FinanceTracker.repository.NetWorthSnapshotRepository;
 import com.bishop.FinanceTracker.repository.WealthItemRepository;
+import com.bishop.FinanceTracker.util.DateUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -148,7 +149,7 @@ public class WealthService {
         // --- Delta vs the most recent snapshot from a prior month ---
         BigDecimal delta = null;
         Double deltaPct = null;
-        String firstOfMonth = LocalDate.now().withDayOfMonth(1).toString();
+        String firstOfMonth = LocalDate.now(DateUtil.APP_ZONE).withDayOfMonth(1).toString();
         for (int i = snapViews.size() - 1; i >= 0; i--) {
             SnapshotView prior = snapViews.get(i);
             if (prior.getAsOfDate().compareTo(firstOfMonth) < 0) {
@@ -176,7 +177,7 @@ public class WealthService {
                 .unvestedOptionsValue(scale(optionsUnvested))
                 .allocation(allocation)
                 .snapshots(snapViews)
-                .asOf(LocalDate.now().toString())
+                .asOf(LocalDate.now(DateUtil.APP_ZONE).toString())
                 .build();
     }
 
@@ -198,7 +199,7 @@ public class WealthService {
                 .fxMissing(fxMissing[0])
                 .chloe(chloe)
                 .millie(millie)
-                .asOf(LocalDate.now().toString())
+                .asOf(LocalDate.now(DateUtil.APP_ZONE).toString())
                 .build();
     }
 
@@ -239,7 +240,7 @@ public class WealthService {
     public NetWorthSnapshot runSnapshot() {
         // One row per calendar day (upsert): re-running on the same day overwrites that
         // day's point, but distinct days accumulate so the over-time chart builds up.
-        final String asOf = LocalDate.now().toString();
+        final String asOf = LocalDate.now(DateUtil.APP_ZONE).toString();
         final boolean[] fxMissing = {false};
 
         Map<String, BigDecimal> classTotals = new LinkedHashMap<>();
@@ -291,7 +292,7 @@ public class WealthService {
 
     /** Compute today's portfolio value (base AUD) for each kid and upsert their snapshot row. */
     public void runKidsSnapshot() {
-        final String asOf = LocalDate.now().toString();
+        final String asOf = LocalDate.now(DateUtil.APP_ZONE).toString();
         final boolean[] fxMissing = {false};
         for (String owner : KID_OWNERS) {
             BigDecimal value = BigDecimal.ZERO;
@@ -311,7 +312,7 @@ public class WealthService {
         }
     }
 
-    @Scheduled(cron = "0 0 2 1 * *") // 02:00 on the 1st of each month
+    @Scheduled(cron = "0 0 2 1 * *", zone = DateUtil.APP_ZONE_ID) // 02:00 Sydney on the 1st: closes the prior month
     public void monthlySnapshot() {
         try {
             runSnapshot();

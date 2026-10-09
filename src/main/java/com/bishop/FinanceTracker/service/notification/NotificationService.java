@@ -59,7 +59,7 @@ public class NotificationService {
     private String budgetThresholds;
 
     /** Daily sweep (feature doc §2A.1). Scheduling is already enabled app-wide. */
-    @Scheduled(cron = "${app.notifications.cron:0 0 8 * * *}", zone = "Australia/Sydney")
+    @Scheduled(cron = "${app.notifications.cron:0 0 8 * * *}", zone = DateUtil.APP_ZONE_ID)
     public void scheduledSweep() {
         runSweep();
     }

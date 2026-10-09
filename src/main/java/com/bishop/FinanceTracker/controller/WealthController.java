@@ -21,6 +21,7 @@ import com.bishop.FinanceTracker.repository.WealthItemRepository;
 import com.bishop.FinanceTracker.service.FxService;
 import com.bishop.FinanceTracker.service.PriceRefreshService;
 import com.bishop.FinanceTracker.service.WealthService;
+import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -277,7 +278,7 @@ public class WealthController {
         if (securityId == null || price == null) return ResponseEntity.badRequest().build();
         if (!securityRepository.existsById(securityId)) return ResponseEntity.badRequest().build();
         String asOf = str(body, "asOfDate");
-        if (isBlank(asOf)) asOf = LocalDate.now().toString();
+        if (isBlank(asOf)) asOf = LocalDate.now(DateUtil.APP_ZONE).toString();
         SecurityPrice row = securityPriceRepository
                 .findBySecurityIdAndAsOfDate(securityId, asOf).orElseGet(SecurityPrice::new);
         row.setSecurityId(securityId);
@@ -314,7 +315,7 @@ public class WealthController {
         String base = ccyOr(body, "baseCcy", "USD");
         String quote = ccyOr(body, "quoteCcy", "AUD");
         String asOf = str(body, "asOfDate");
-        if (isBlank(asOf)) asOf = LocalDate.now().toString();
+        if (isBlank(asOf)) asOf = LocalDate.now(DateUtil.APP_ZONE).toString();
         FxRate row = fxRateRepository
                 .findByBaseCcyAndQuoteCcyAndAsOfDate(base, quote, asOf).orElseGet(FxRate::new);
         row.setBaseCcy(base);

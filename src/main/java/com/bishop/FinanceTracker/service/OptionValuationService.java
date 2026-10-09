@@ -7,6 +7,7 @@ import com.bishop.FinanceTracker.model.wealth.OptionGrantView;
 import com.bishop.FinanceTracker.repository.OptionGrantRepository;
 import com.bishop.FinanceTracker.repository.SecurityPriceRepository;
 import com.bishop.FinanceTracker.repository.SecurityRepository;
+import com.bishop.FinanceTracker.util.DateUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -80,7 +81,7 @@ public class OptionValuationService {
 
     /** Value every non-archived grant (native currency; display conversion happens in WealthService). */
     public List<OptionGrantView> computeGrants() {
-        return computeGrants(LocalDate.now());
+        return computeGrants(LocalDate.now(DateUtil.APP_ZONE));
     }
 
     // Package-visible overload with an explicit "today" for deterministic tests.

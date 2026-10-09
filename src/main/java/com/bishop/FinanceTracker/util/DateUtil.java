@@ -10,8 +10,10 @@ import static java.util.Objects.isNull;
 @Slf4j
 public class DateUtil {
 
+    /** {@link #APP_ZONE} as an ID, for annotations such as {@code @Scheduled(zone = ...)} that need a constant. */
+    public static final String APP_ZONE_ID = "Australia/Sydney";
     /** The household's timezone: transaction calendar dates and "today" are both in it. */
-    public static final ZoneId APP_ZONE = ZoneId.of("Australia/Sydney");
+    public static final ZoneId APP_ZONE = ZoneId.of(APP_ZONE_ID);
 
     private static final String DISPLAY_DATE_TIME = "dd-MM-yyyy";
     // Lenient on zero-padding; thread-safe.
