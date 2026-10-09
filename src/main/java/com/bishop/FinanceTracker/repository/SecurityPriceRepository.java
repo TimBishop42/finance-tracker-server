@@ -10,5 +10,7 @@ import java.util.Optional;
 public interface SecurityPriceRepository extends JpaRepository<SecurityPrice, Long> {
     Optional<SecurityPrice> findFirstBySecurityIdOrderByAsOfDateDesc(Long securityId);
 
+    Optional<SecurityPrice> findFirstBySecurityIdAndAsOfDateLessThanEqualOrderByAsOfDateDesc(Long securityId, String asOfDate);
+
     Optional<SecurityPrice> findBySecurityIdAndAsOfDate(Long securityId, String asOfDate);
 }

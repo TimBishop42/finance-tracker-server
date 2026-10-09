@@ -21,7 +21,8 @@ public record MonthlyReviewResponse(
         List<MerchantRow> newMerchants,
         List<TransactionRow> biggestTransactions,
         SubscriptionChanges subscriptionChanges,
-        Cumulative cumulative) {
+        Cumulative cumulative,
+        WealthReview wealth) {
 
     public record Totals(BigDecimal spend, BigDecimal income, BigDecimal net, BigDecimal savingsRatePercent,
                          BigDecimal spendTarget, BigDecimal lastMonthSpend, BigDecimal lastMonthIncome,

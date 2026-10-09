@@ -15,9 +15,11 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.function.Predicate;
 
 /**
  * Derives share/ETF holdings from the trade log using the average-cost method.
@@ -49,14 +51,34 @@ public class HoldingsService {
      * portfolio.
      */
     public List<HoldingView> computeHoldings(String owner) {
+        return computeHoldings(owner, null);
+    }
+
+    /**
+     * As {@link #computeHoldings(String)}, but as at the end of {@code asOf}: only
+     * trades and splits dated on or before it, valued at the last price on or before
+     * it. {@code null} means now. Used to value a portfolio at month boundaries.
+     * A security with no price on or before {@code asOf} is valued at average cost
+     * (priceIsEstimated), so the month its first price arrives shows a jump.
+     */
+    public List<HoldingView> computeHoldings(String owner, LocalDate asOf) {
+        // yyyy-MM-dd strings compare in date order.
+        Predicate<String> onOrBefore = date -> asOf == null || date.compareTo(asOf.toString()) <= 0;
         List<HoldingView> result = new ArrayList<>();
         for (Security sec : securityRepository.findAll()) {
-            List<ShareTrade> trades = owner == null
+            List<ShareTrade> trades = (owner == null
                     ? shareTradeRepository.findBySecurityIdAndOwnerIsNullOrderByTradeDateAscIdAsc(sec.getId())
-                    : shareTradeRepository.findBySecurityIdAndOwnerOrderByTradeDateAscIdAsc(sec.getId(), owner);
+                    : shareTradeRepository.findBySecurityIdAndOwnerOrderByTradeDateAscIdAsc(sec.getId(), owner))
+                    .stream().filter(t -> onOrBefore.test(t.getTradeDate())).toList();
             if (trades.isEmpty()) continue;
-            List<StockSplit> splits = stockSplitRepository.findBySecurityIdOrderByExDateAscIdAsc(sec.getId());
-            result.add(buildHolding(sec, trades, splits));
+            List<StockSplit> splits = stockSplitRepository.findBySecurityIdOrderByExDateAscIdAsc(sec.getId())
+                    .stream().filter(s -> onOrBefore.test(s.getExDate())).toList();
+            SecurityPrice price = (asOf == null
+                    ? securityPriceRepository.findFirstBySecurityIdOrderByAsOfDateDesc(sec.getId())
+                    : securityPriceRepository.findFirstBySecurityIdAndAsOfDateLessThanEqualOrderByAsOfDateDesc(
+                            sec.getId(), asOf.toString()))
+                    .orElse(null);
+            result.add(buildHolding(sec, trades, splits, price));
         }
         result.sort((a, b) -> a.getTicker().compareToIgnoreCase(b.getTicker()));
         return result;
@@ -65,7 +87,8 @@ public class HoldingsService {
     // One step in the chronological replay: a trade, or a split (ratio only).
     private record Event(String date, boolean isSplit, ShareTrade trade, BigDecimal ratio) {}
 
-    private HoldingView buildHolding(Security sec, List<ShareTrade> trades, List<StockSplit> splits) {
+    private HoldingView buildHolding(Security sec, List<ShareTrade> trades, List<StockSplit> splits,
+                                     SecurityPrice priceRow) {
         BigDecimal qty = BigDecimal.ZERO;        // running position
         BigDecimal costBasis = BigDecimal.ZERO;  // total cost of the current position (incl. fees)
         BigDecimal realised = BigDecimal.ZERO;   // realised P/L from sells
@@ -116,8 +139,6 @@ public class HoldingsService {
                 ? costBasis.divide(qty, UNIT_SCALE, RoundingMode.HALF_UP)
                 : BigDecimal.ZERO;
 
-        SecurityPrice priceRow = securityPriceRepository
-                .findFirstBySecurityIdOrderByAsOfDateDesc(sec.getId()).orElse(null);
         BigDecimal lastPrice = priceRow != null ? priceRow.getPrice() : null;
         String lastPriceDate = priceRow != null ? priceRow.getAsOfDate() : null;
         boolean priceIsEstimated = lastPrice == null;
@@ -147,6 +168,7 @@ public class HoldingsService {
                 .marketValueNative(marketValue)
                 .unrealisedPlNative(unrealised)
                 .realisedPlNative(realised.setScale(MONEY_SCALE, RoundingMode.HALF_UP))
+                .costBasisNative(costBasis.setScale(MONEY_SCALE, RoundingMode.HALF_UP))
                 .unrealisedPlPct(unrealisedPct)
                 .build();
     }

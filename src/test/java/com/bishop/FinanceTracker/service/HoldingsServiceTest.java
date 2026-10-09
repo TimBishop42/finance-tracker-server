@@ -106,6 +106,31 @@ class HoldingsServiceTest {
     }
 
     @Test
+    void valuesAsAtADateUsingOnlyEarlierTradesSplitsAndPrices() {
+        givenTrades(List.of(
+                trade(1, "BUY", "10", "100", "0", "2026-08-10"),
+                trade(2, "BUY", "5", "110", "0", "2026-09-15")));   // after the as-of date
+        givenSplits(List.of(split(1, "2", "2026-09-20")));             // after the as-of date
+        when(securityPriceRepository.findFirstBySecurityIdAndAsOfDateLessThanEqualOrderByAsOfDateDesc(SEC_ID, "2026-08-31"))
+                .thenReturn(Optional.of(SecurityPrice.builder()
+                        .securityId(SEC_ID).asOfDate("2026-08-29").price(new BigDecimal("105")).source("FEED").build()));
+
+        List<HoldingView> holdings = holdingsService.computeHoldings(null, java.time.LocalDate.of(2026, 8, 31));
+
+        assertEquals(1, holdings.size());
+        assertBd("10", holdings.get(0).getQuantity());
+        assertBd("1050.00", holdings.get(0).getMarketValueNative());
+        assertEquals("2026-08-29", holdings.get(0).getLastPriceDate());
+    }
+
+    @Test
+    void securityFirstTradedAfterTheAsOfDateIsOmitted() {
+        givenTrades(List.of(trade(1, "BUY", "10", "100", "0", "2026-09-01")));
+
+        assertTrue(holdingsService.computeHoldings(null, java.time.LocalDate.of(2026, 8, 31)).isEmpty());
+    }
+
+    @Test
     void includesFeesInCostBasis() {
         givenTrades(List.of(trade(1, "BUY", "10", "5", "10", "2024-01-01")));
 

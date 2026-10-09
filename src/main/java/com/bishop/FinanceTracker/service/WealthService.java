@@ -43,12 +43,14 @@ import java.util.Optional;
 public class WealthService {
 
     private static final int MONEY_SCALE = 2;
-    private static final String SHARES = "SHARES";
-    private static final String OPTIONS = "OPTIONS";
+    static final String SHARES = "SHARES";
+    static final String OPTIONS = "OPTIONS";
     private static final String LIABILITY = "LIABILITY";
-    private static final String BASE_CCY = "AUD";
+    static final String BASE_CCY = "AUD";
     private static final String OWNER_CHLOE = "CHLOE";
     private static final String OWNER_MILLIE = "MILLIE";
+    /** Owners with a separate kids' portfolio (excluded from household net worth). */
+    static final List<String> KID_OWNERS = List.of(OWNER_CHLOE, OWNER_MILLIE);
 
     private final WealthItemRepository wealthItemRepository;
     private final NetWorthSnapshotRepository snapshotRepository;
@@ -291,7 +293,7 @@ public class WealthService {
     public void runKidsSnapshot() {
         final String asOf = LocalDate.now().toString();
         final boolean[] fxMissing = {false};
-        for (String owner : List.of(OWNER_CHLOE, OWNER_MILLIE)) {
+        for (String owner : KID_OWNERS) {
             BigDecimal value = BigDecimal.ZERO;
             for (HoldingView h : holdingsService.computeHoldings(owner)) {
                 value = value.add(convert(h.getMarketValueNative(), h.getCurrency(), BASE_CCY, fxMissing));
@@ -320,17 +322,18 @@ public class WealthService {
         }
     }
 
-    private BigDecimal convert(BigDecimal amount, String from, String to, boolean[] fxMissing) {
+    /** Best-effort conversion: with no FX rate, flags fxMissing and passes the amount through 1:1. */
+    BigDecimal convert(BigDecimal amount, String from, String to, boolean[] fxMissing) {
         if (amount == null) return BigDecimal.ZERO;
         Optional<BigDecimal> r = fxService.convert(amount, from, to);
         if (r.isEmpty()) {
-            fxMissing[0] = true; // surfaced to the UI; best-effort 1:1 so the page still renders
+            fxMissing[0] = true; // surfaced to the UI so the page still renders
             return amount;
         }
         return r.get();
     }
 
-    private static BigDecimal scale(BigDecimal v) {
+    static BigDecimal scale(BigDecimal v) {
         return (v == null ? BigDecimal.ZERO : v).setScale(MONEY_SCALE, RoundingMode.HALF_UP);
     }
 

@@ -28,6 +28,7 @@ public class HoldingView {
     private BigDecimal marketValueNative;
     private BigDecimal unrealisedPlNative;
     private BigDecimal realisedPlNative;
+    private BigDecimal costBasisNative;  // total cost of the current position, incl. fees
 
     private BigDecimal marketValueDisplay;
     private BigDecimal unrealisedPlDisplay;

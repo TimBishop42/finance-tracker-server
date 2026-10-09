@@ -48,6 +48,7 @@ public class MonthlyReviewService {
 
     private final TransactionService transactionService;
     private final AggregationService aggregationService;
+    private final WealthReviewService wealthReviewService;
     private final CategoryService categoryService;
     private final UserSettingsService userSettingsService;
     private final MerchantNormalizer merchantNormalizer;
@@ -86,10 +87,11 @@ public class MonthlyReviewService {
         List<Dated> current = byMonth.getOrDefault(month, List.of());
         List<Dated> currentExpenses = current.stream().filter(d -> AggregationService.isExpense(d.tx())).toList();
 
+        Totals totals = totals(month, priorMonths, byMonth);
         MonthlyReviewResponse response = new MonthlyReviewResponse(
                 month.toString(),
                 all.stream().map(Dated::date).max(Comparator.naturalOrder()).orElse(null),
-                totals(month, priorMonths, byMonth),
+                totals,
                 historyMonths.stream()
                         .map(m -> new MonthPoint(m.toString(), spend(byMonth.get(m)), income(byMonth.get(m))))
                         .toList(),
@@ -103,7 +105,8 @@ public class MonthlyReviewService {
                         .toList(),
                 subscriptionChanges(month),
                 new Cumulative(aggregationService.cumulativeSpend(month),
-                        aggregationService.cumulativeSpend(month.minusMonths(1))));
+                        aggregationService.cumulativeSpend(month.minusMonths(1))),
+                wealthReviewService.review(month, totals.net()));
 
         log.info("Built monthly review for {} in {} ms", month, System.currentTimeMillis() - start);
         return response;
