@@ -26,4 +26,8 @@ public class Category {
     /** Monthly spend budget for this category; null = no budget set. */
     @Column(name = "monthly_budget", precision = 10, scale = 2)
     private BigDecimal monthlyBudget;
+
+    /** Fixed chart colour (#rrggbb), assigned once to be as distinct as possible from the others. */
+    @Column(name = "color", length = 7)
+    private String color;
 }

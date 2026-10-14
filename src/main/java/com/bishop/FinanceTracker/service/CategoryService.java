@@ -3,6 +3,7 @@ package com.bishop.FinanceTracker.service;
 import com.bishop.FinanceTracker.model.domain.Category;
 import com.bishop.FinanceTracker.model.json.CategoryRequest;
 import com.bishop.FinanceTracker.repository.CategoryRepository;
+import com.bishop.FinanceTracker.util.CategoryColors;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import lombok.RequiredArgsConstructor;
@@ -35,7 +36,18 @@ public class CategoryService {
         categoryCache = Caffeine.newBuilder()
                 .maximumSize(100)
                 .build();
-        fetchAll().stream().forEach(c -> categoryCache.put(c.getCategoryName(), c));
+        List<Category> all = fetchAll();
+        // Backfill colours for categories created before colours existed, oldest first.
+        all.stream()
+                .filter(c -> isNull(c.getColor()))
+                .sorted(Comparator.comparing(Category::getCreateDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                        .thenComparing(Category::getCategoryName))
+                .forEach(c -> {
+                    c.setColor(CategoryColors.mostDistinct(all.stream().map(Category::getColor).toList()));
+                    categoryRepository.save(c);
+                    log.info("Assigned colour {} to category {}", c.getColor(), c.getCategoryName());
+                });
+        all.forEach(c -> categoryCache.put(c.getCategoryName(), c));
     }
 
     public List<Category> getAllCategories() {
@@ -45,7 +57,8 @@ public class CategoryService {
         return categories;
     }
 
-    public String addCategory(String category) {
+    // synchronized so two concurrent adds can't both claim the same "most distinct" colour.
+    public synchronized String addCategory(String category) {
         long startTime = System.currentTimeMillis();
         if (isNull(category)) {
             return "Add FAILED: New category string cannot be null";
@@ -57,6 +70,8 @@ public class CategoryService {
         Category newCategory = Category.builder()
                 .categoryName(category)
                 .createDate(System.currentTimeMillis())
+                .color(CategoryColors.mostDistinct(
+                        categoryCache.asMap().values().stream().map(Category::getColor).toList()))
                 .build();
         categoryRepository.save(newCategory);
         categoryCache.put(newCategory.getCategoryName(), newCategory);

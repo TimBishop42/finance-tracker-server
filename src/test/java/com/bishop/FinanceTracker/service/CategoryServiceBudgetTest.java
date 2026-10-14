@@ -12,6 +12,8 @@ import java.util.List;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
@@ -29,7 +31,7 @@ public class CategoryServiceBudgetTest {
     @BeforeEach
     public void setup() {
         repository = mock(CategoryRepository.class);
-        groceries = Category.builder().categoryName("Groceries").createDate(1L).build();
+        groceries = Category.builder().categoryName("Groceries").createDate(1L).color("#1976d2").build();
         when(repository.findAll()).thenReturn(List.of(groceries));
         // Fresh copy per lookup, so the cache assertions only pass if setBudget re-caches the saved entity.
         when(repository.findById("Groceries")).thenAnswer(inv -> Optional.of(groceries.toBuilder().build()));
@@ -76,5 +78,19 @@ public class CategoryServiceBudgetTest {
         r.setCategoryName(name);
         r.setMonthlyBudget(budget == null ? null : new BigDecimal(budget));
         return r;
+    }
+
+    @Test
+    public void initBackfillsDistinctColoursForUncolouredCategories() {
+        Category a = Category.builder().categoryName("A").createDate(1L).build();
+        Category b = Category.builder().categoryName("B").createDate(2L).build();
+        when(repository.findAll()).thenReturn(List.of(groceries, a, b));
+        service.init();
+
+        assertNotNull(a.getColor());
+        assertNotNull(b.getColor());
+        assertNotEquals(a.getColor(), b.getColor());
+        assertNotEquals("#1976d2", a.getColor());
+        assertEquals("#1976d2", groceries.getColor());
     }
 }
